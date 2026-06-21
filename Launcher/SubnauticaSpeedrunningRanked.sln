@@ -11,6 +11,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SubnauticaSpeedrunningRanke
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SubnauticaSpeedrunningRanked.Runtime", "src\SubnauticaSpeedrunningRanked.Runtime\SubnauticaSpeedrunningRanked.Runtime.csproj", "{46CB7AAD-9E98-4346-8451-4B7A4DFEBEF7}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SubnauticaSpeedrunningRanked.Updater", "src\SubnauticaSpeedrunningRanked.Updater\SubnauticaSpeedrunningRanked.Updater.csproj", "{7B9AF14C-0B22-4A95-B0E0-DB651A8AEE39}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -57,6 +59,18 @@ Global
 		{46CB7AAD-9E98-4346-8451-4B7A4DFEBEF7}.Release|x64.Build.0 = Release|Any CPU
 		{46CB7AAD-9E98-4346-8451-4B7A4DFEBEF7}.Release|x86.ActiveCfg = Release|Any CPU
 		{46CB7AAD-9E98-4346-8451-4B7A4DFEBEF7}.Release|x86.Build.0 = Release|Any CPU
+		{7B9AF14C-0B22-4A95-B0E0-DB651A8AEE39}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7B9AF14C-0B22-4A95-B0E0-DB651A8AEE39}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7B9AF14C-0B22-4A95-B0E0-DB651A8AEE39}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{7B9AF14C-0B22-4A95-B0E0-DB651A8AEE39}.Debug|x64.Build.0 = Debug|Any CPU
+		{7B9AF14C-0B22-4A95-B0E0-DB651A8AEE39}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{7B9AF14C-0B22-4A95-B0E0-DB651A8AEE39}.Debug|x86.Build.0 = Debug|Any CPU
+		{7B9AF14C-0B22-4A95-B0E0-DB651A8AEE39}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7B9AF14C-0B22-4A95-B0E0-DB651A8AEE39}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7B9AF14C-0B22-4A95-B0E0-DB651A8AEE39}.Release|x64.ActiveCfg = Release|Any CPU
+		{7B9AF14C-0B22-4A95-B0E0-DB651A8AEE39}.Release|x64.Build.0 = Release|Any CPU
+		{7B9AF14C-0B22-4A95-B0E0-DB651A8AEE39}.Release|x86.ActiveCfg = Release|Any CPU
+		{7B9AF14C-0B22-4A95-B0E0-DB651A8AEE39}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -65,5 +79,6 @@ Global
 		{57C137D7-3B29-4896-B040-8F8F14B389AC} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{C7D0E9AF-39D2-4DB3-8703-F5A1DD4AA0DF} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{46CB7AAD-9E98-4346-8451-4B7A4DFEBEF7} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
+		{7B9AF14C-0B22-4A95-B0E0-DB651A8AEE39} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 	EndGlobalSection
 EndGlobal

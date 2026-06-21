@@ -2,6 +2,8 @@
 
 Public repo root for the ranked Subnautica September 2018 client.
 
+Current public beta version: `Beta-0.3.0`
+
 ## Structure
 
 - `Launcher/`
@@ -35,17 +37,19 @@ From this repo root:
 For direct game publishing during local testing:
 
 ```powershell
-.\Launcher\publish-to-game.ps1 -BuildFirst
+.\Launcher\publish-to-game.ps1 -BuildFirst -CreateShortcut
 ```
 
 ## Install Shape
 
-After packaging, the game folder can be launched either with:
+The launcher lives inside `SubnauticaSpeedrunningRanked`.
 
-- `Launch Ranked.exe`
-- `SubnauticaSpeedrunningRanked\Launch Ranked.exe`
+After the first launch, the client creates a convenience shortcut in the game root:
 
-Both resolve the same ranked runtime folder.
+- `Launch Ranked.lnk`
+- target: `SubnauticaSpeedrunningRanked\Launch Ranked.exe`
+
+The root game folder should not contain the ranked launcher binaries anymore.
 
 ## Branch Flow
 

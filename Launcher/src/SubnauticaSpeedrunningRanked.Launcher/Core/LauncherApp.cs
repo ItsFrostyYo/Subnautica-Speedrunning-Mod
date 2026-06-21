@@ -14,6 +14,7 @@ internal static class LauncherApp
         layout.EnsureDirectories();
         LauncherLog.Initialize(layout.LogsDirectory);
         LauncherLog.Info("Launcher starting.");
+        LauncherLog.Info("Launcher version: " + LauncherVersion.DisplayVersion);
         LauncherLog.Info("Ranked root: " + layout.RankedRoot);
         LauncherLog.Info("Game root: " + layout.GameRoot);
 
@@ -64,6 +65,13 @@ internal static class LauncherApp
         }
 
         LauncherLog.Info("Game version validation passed.");
+        LauncherShortcutManager.EnsureGameShortcut(layout);
+        if (LauncherUpdateService.TryRunUpdateFlow(layout, args))
+        {
+            LauncherLog.Info("Updater launched; exiting current launcher instance.");
+            return 0;
+        }
+
         DoorstopConfigWriter.Write(layout);
 
         if (args.Any(static arg => string.Equals(arg, "--setup-only", StringComparison.OrdinalIgnoreCase)))
@@ -88,8 +96,7 @@ internal static class LauncherApp
         startInfo.Environment["RANKED_ROOT"] = layout.RankedRoot;
         startInfo.Environment["RANKED_GAME_ROOT"] = layout.GameRoot;
         startInfo.Environment["RANKED_SESSION_ID"] = sessionId;
-        startInfo.Environment["RANKED_LAUNCHER_VERSION"] =
-            typeof(LauncherApp).Assembly.GetName().Version?.ToString() ?? "unknown";
+        startInfo.Environment["RANKED_LAUNCHER_VERSION"] = LauncherVersion.DisplayVersion;
 
         if (TryFindExistingGameProcess(layout.GameExecutablePath, out var existingProcessId))
         {

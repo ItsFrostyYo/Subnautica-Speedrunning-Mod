@@ -1,5 +1,5 @@
 param(
-    [string] $ReleaseName = ("SubnauticaSpeedrunningRanked-" + (Get-Date -Format "yyyyMMdd-HHmmss")),
+    [string] $ReleaseVersion = "",
     [string] $TransportRoot = "C:\Program Files (x86)\Steam\steamapps\common\Subnautica",
     [switch] $BuildFirst,
     [switch] $IncludeDebugSymbols
@@ -11,14 +11,27 @@ $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $launcherRoot = Join-Path $root "Launcher"
 $distRoot = Join-Path $launcherRoot "dist\SubnauticaSpeedrunningRanked"
 $releaseRoot = Join-Path $root "release"
+$versionSourcePath = Join-Path $launcherRoot "src\Shared\RankedClientRelease.cs"
+
+function Get-ClientReleaseVersion {
+    param([string] $Path)
+
+    $content = Get-Content -Raw -Path $Path
+    $match = [regex]::Match($content, 'DisplayVersion\s*=\s*"([^"]+)"')
+    if (-not $match.Success) {
+        throw "Could not determine client version from $Path"
+    }
+
+    return $match.Groups[1].Value
+}
+
+if ([string]::IsNullOrWhiteSpace($ReleaseVersion)) {
+    $ReleaseVersion = Get-ClientReleaseVersion -Path $versionSourcePath
+}
+
+$ReleaseName = "SubnauticaSpeedrunningRanked-" + $ReleaseVersion
 $packageRoot = Join-Path $releaseRoot $ReleaseName
 $archivePath = Join-Path $releaseRoot ($ReleaseName + ".zip")
-$directLauncherFiles = @(
-    "Launch Ranked.exe",
-    "Launch Ranked.dll",
-    "Launch Ranked.deps.json",
-    "Launch Ranked.runtimeconfig.json"
-)
 
 function Ensure-Directory {
     param([string] $Path)
@@ -64,8 +77,8 @@ Subnautica Speedrunning Ranked Release
 1. Copy everything in this folder into your Subnautica2018 game folder.
 2. Make sure Subnautica is fully closed first.
 3. Launch with:
-   - Launch Ranked.exe
-   - or SubnauticaSpeedrunningRanked\Launch Ranked.exe
+   - SubnauticaSpeedrunningRanked\Launch Ranked.exe
+4. After the first launch, the client will create a Launch Ranked shortcut in the game root.
 
 Update flow:
 - Replace existing ranked files with the new release contents.

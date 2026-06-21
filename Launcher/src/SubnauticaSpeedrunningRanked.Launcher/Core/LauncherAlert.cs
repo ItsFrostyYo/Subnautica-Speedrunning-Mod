@@ -4,6 +4,25 @@ namespace SubnauticaSpeedrunningRanked.Launcher;
 
 internal static class LauncherAlert
 {
+    public static bool Confirm(string title, string message)
+    {
+        try
+        {
+            return MessageBox.Show(
+                       message,
+                       title,
+                       MessageBoxButtons.YesNo,
+                       MessageBoxIcon.Question,
+                       MessageBoxDefaultButton.Button1) == DialogResult.Yes;
+        }
+        catch
+        {
+            Console.Error.WriteLine(title);
+            Console.Error.WriteLine(message);
+            return false;
+        }
+    }
+
     public static void ShowError(string title, string message)
     {
         try

@@ -1,7 +1,8 @@
 param(
     [string] $GameRoot = "C:\Program Files (x86)\Steam\steamapps\common\Subnautica2018",
     [string] $TransportRoot = "C:\Program Files (x86)\Steam\steamapps\common\Subnautica",
-    [switch] $BuildFirst
+    [switch] $BuildFirst,
+    [switch] $CreateShortcut
 )
 
 $ErrorActionPreference = "Stop"
@@ -11,7 +12,8 @@ $distRoot = Join-Path $root "dist\SubnauticaSpeedrunningRanked"
 $launcherProject = Join-Path $root "src\SubnauticaSpeedrunningRanked.Launcher\SubnauticaSpeedrunningRanked.Launcher.csproj"
 $bootstrapProject = Join-Path $root "src\SubnauticaSpeedrunningRanked.Bootstrap\SubnauticaSpeedrunningRanked.Bootstrap.csproj"
 $runtimeProject = Join-Path $root "src\SubnauticaSpeedrunningRanked.Runtime\SubnauticaSpeedrunningRanked.Runtime.csproj"
-$directLauncherFiles = @(
+$updaterProject = Join-Path $root "src\SubnauticaSpeedrunningRanked.Updater\SubnauticaSpeedrunningRanked.Updater.csproj"
+$legacyRootLauncherFiles = @(
     "Launch Ranked.exe",
     "Launch Ranked.dll",
     "Launch Ranked.deps.json",
@@ -41,6 +43,30 @@ function Write-MissingOptionalFile {
     Write-Warning "Optional file not found: $Path"
 }
 
+function Remove-IfExists {
+    param([string] $Path)
+
+    if (Test-Path $Path) {
+        Remove-Item -LiteralPath $Path -Force
+    }
+}
+
+function New-LauncherShortcut {
+    param(
+        [string] $ShortcutPath,
+        [string] $TargetPath,
+        [string] $WorkingDirectory
+    )
+
+    $shell = New-Object -ComObject WScript.Shell
+    $shortcut = $shell.CreateShortcut($ShortcutPath)
+    $shortcut.TargetPath = $TargetPath
+    $shortcut.WorkingDirectory = $WorkingDirectory
+    $shortcut.Description = "Launch Subnautica Speedrunning Ranked"
+    $shortcut.IconLocation = "$TargetPath,0"
+    $shortcut.Save()
+}
+
 function Invoke-NativeCommand {
     param(
         [Parameter(Mandatory = $true)]
@@ -67,10 +93,12 @@ Ensure-Directory (Join-Path $distRoot "Logs")
 Ensure-Directory (Join-Path $distRoot "Modules")
 Ensure-Directory (Join-Path $distRoot "Cache")
 Ensure-Directory (Join-Path $distRoot "Data")
+Ensure-Directory (Join-Path $distRoot "Updater")
 
 Invoke-NativeCommand -FilePath dotnet -Arguments @("publish", $launcherProject, "-c", "Release", "-o", $distRoot)
 Invoke-NativeCommand -FilePath dotnet -Arguments @("publish", $bootstrapProject, "-c", "Release", "-o", (Join-Path $distRoot "Bootstrap"))
 Invoke-NativeCommand -FilePath dotnet -Arguments @("publish", $runtimeProject, "-c", "Release", "-o", (Join-Path $distRoot "Runtime"))
+Invoke-NativeCommand -FilePath dotnet -Arguments @("publish", $updaterProject, "-c", "Release", "-o", (Join-Path $distRoot "Updater"))
 
 $targetRankedRoot = Join-Path $GameRoot "SubnauticaSpeedrunningRanked"
 Ensure-Directory $targetRankedRoot
@@ -79,10 +107,8 @@ Get-ChildItem -LiteralPath $distRoot -Force | ForEach-Object {
     Copy-Item -LiteralPath $_.FullName -Destination $targetRankedRoot -Recurse -Force
 }
 
-foreach ($file in $directLauncherFiles) {
-    $source = Join-Path $distRoot $file
-    $destination = Join-Path $GameRoot $file
-    Copy-IfExists -Source $source -Destination $destination
+foreach ($file in $legacyRootLauncherFiles) {
+    Remove-IfExists -Path (Join-Path $GameRoot $file)
 }
 
 $transportFiles = @("winhttp.dll", ".doorstop_version")
@@ -97,6 +123,17 @@ foreach ($file in $transportFiles) {
     }
 }
 
+$shortcutPath = Join-Path $GameRoot "Launch Ranked.lnk"
+if ($CreateShortcut) {
+    $targetPath = Join-Path $targetRankedRoot "Launch Ranked.exe"
+    if (Test-Path $targetPath) {
+        New-LauncherShortcut -ShortcutPath $shortcutPath -TargetPath $targetPath -WorkingDirectory $targetRankedRoot
+    }
+}
+else {
+    Remove-IfExists -Path $shortcutPath
+}
+
 Write-Host "Published ranked loader to: $targetRankedRoot"
 Write-Host "Native transport source checked at: $TransportRoot"
-Write-Host "Run Launch Ranked.exe from the game root, or SubnauticaSpeedrunningRanked\\Launch Ranked.exe."
+Write-Host "Run SubnauticaSpeedrunningRanked\\Launch Ranked.exe after install."

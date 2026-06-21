@@ -2,6 +2,8 @@
 
 This folder contains the first custom loading stack for the ranked mod.
 
+Current public beta version: `Beta-0.3.0`
+
 The design goal is:
 
 - custom launcher
@@ -16,14 +18,15 @@ The design goal is:
 
 ## Architecture
 
-`Launch Ranked.exe`
+`SubnauticaSpeedrunningRanked\Launch Ranked.exe`
 
-- Windows launcher that can live in `SubnauticaSpeedrunningRanked`
-- or be copied directly beside `Subnautica.exe`
+- Windows launcher that lives in `SubnauticaSpeedrunningRanked`
 - validates the game install
 - prepares folder layout
+- creates a root `Launch Ranked.lnk` shortcut for convenience
 - manages `doorstop_config.ini`
 - launches `Subnautica.exe`
+- checks GitHub for new public releases and can hand off to the updater
 
 `SubnauticaSpeedrunningRanked.Bootstrap.dll`
 
@@ -38,6 +41,13 @@ The design goal is:
 - owns config, logs, module discovery, and future patching / networking
 - writes runtime crash reports and environment diagnostics
 
+`Ranked Updater.exe`
+
+- temporary update worker launched out-of-process from the launcher
+- downloads the latest GitHub release zip
+- applies the new files safely
+- relaunches the ranked launcher after update
+
 ## Why this approach
 
 Subnautica September 2018 is a Unity Mono build. The cleanest practical path is to keep the native transport thin and make the real loader fully ours.
@@ -45,22 +55,22 @@ Subnautica September 2018 is a Unity Mono build. The cleanest practical path is 
 That gives us both:
 
 - normal `Subnautica.exe` launches can still load the ranked runtime once installed
-- `Launch Ranked.exe` can act as the safe setup and launch wrapper
+- the ranked launcher can stay isolated inside `SubnauticaSpeedrunningRanked`
+- the root game folder only needs transport files plus a shortcut
 
 ## Deployment shape beside the game
 
 ```text
 Subnautica2018\
   Subnautica.exe
-  Launch Ranked.exe
-  Launch Ranked.dll
-  Launch Ranked.deps.json
-  Launch Ranked.runtimeconfig.json
+  Launch Ranked.lnk
   winhttp.dll
   .doorstop_version
   doorstop_config.ini
   SubnauticaSpeedrunningRanked\
     Launch Ranked.exe
+    Updater\
+      Ranked Updater.exe
     Bootstrap\
       SubnauticaSpeedrunningRanked.Bootstrap.dll
     Runtime\
@@ -93,7 +103,7 @@ If the install does not match, `Launch Ranked.exe` will stop before launch and t
   Builds the solution in Release mode.
 
 - `publish-to-game.ps1`
-  Publishes the launcher/runtime into a game folder and can copy the native Doorstop transport from another install.
+  Publishes the launcher/runtime into a game folder, can create the game-root shortcut, and can copy the native Doorstop transport from another install.
 
 - `..\Build-ReleasePackage.ps1`
   Builds a public release folder and zip that can be extracted straight into the game root.

@@ -1,16 +1,14 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <OutputType>Exe</OutputType>
+    <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>disable</Nullable>
-    <AssemblyName>Launch Ranked</AssemblyName>
-    <RootNamespace>SubnauticaSpeedrunningRanked.Launcher</RootNamespace>
+    <AssemblyName>Ranked Updater</AssemblyName>
+    <RootNamespace>SubnauticaSpeedrunningRanked.Updater</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="..\Shared\RankedCompatibilityProfile.cs" Link="Shared\RankedCompatibilityProfile.cs" />
-    <Compile Include="..\Shared\GameInstallValidator.cs" Link="Shared\GameInstallValidator.cs" />
     <Compile Include="..\Shared\RankedClientRelease.cs" Link="Shared\RankedClientRelease.cs" />
   </ItemGroup>
 </Project>

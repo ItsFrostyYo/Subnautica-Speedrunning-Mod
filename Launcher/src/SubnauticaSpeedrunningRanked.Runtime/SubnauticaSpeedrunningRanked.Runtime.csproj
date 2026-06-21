@@ -34,5 +34,6 @@
   <ItemGroup>
     <Compile Include="..\Shared\RankedCompatibilityProfile.cs" Link="Shared\RankedCompatibilityProfile.cs" />
     <Compile Include="..\Shared\GameInstallValidator.cs" Link="Shared\GameInstallValidator.cs" />
+    <Compile Include="..\Shared\RankedClientRelease.cs" Link="Shared\RankedClientRelease.cs" />
   </ItemGroup>
 </Project>

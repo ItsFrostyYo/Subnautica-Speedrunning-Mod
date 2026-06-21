@@ -24,8 +24,9 @@ This repo is intended to stay clean for public releases while still letting deve
 1. Download the latest release zip from GitHub.
 2. Fully close the game.
 3. Extract the zip into the `Subnautica2018` game folder.
-4. Launch with `Launch Ranked.exe`.
-5. To update, replace the existing ranked files with the new release contents.
+4. Launch with `SubnauticaSpeedrunningRanked\Launch Ranked.exe`.
+5. The client will create a `Launch Ranked.lnk` shortcut in the game root after first launch.
+6. To update, either use the in-launcher GitHub updater or replace the existing ranked files with the new release contents.
 
 ## Repo scope
 

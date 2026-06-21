@@ -1,4 +1,3 @@
-using System.Reflection;
 using System.Text;
 using SubnauticaSpeedrunningRanked.Shared;
 
@@ -17,7 +16,7 @@ internal static class LauncherDiagnostics
         builder.AppendLine(report.ToDiagnosticText());
         builder.AppendLine();
         builder.AppendLine("[Launcher]");
-        builder.AppendLine("LauncherVersion=" + (Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "unknown"));
+        builder.AppendLine("LauncherVersion=" + LauncherVersion.DisplayVersion);
         builder.AppendLine("RankedRoot=" + layout.RankedRoot);
         builder.AppendLine("GameRoot=" + layout.GameRoot);
         builder.AppendLine("BootstrapAssemblyPath=" + layout.BootstrapAssemblyPath);
@@ -41,7 +40,7 @@ internal static class LauncherDiagnostics
         var builder = new StringBuilder();
         builder.AppendLine("Subnautica Speedrunning Ranked Launcher Crash Report");
         builder.AppendLine("GeneratedAt=" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff"));
-        builder.AppendLine("LauncherVersion=" + (Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "unknown"));
+        builder.AppendLine("LauncherVersion=" + LauncherVersion.DisplayVersion);
         if (layout is not null)
         {
             builder.AppendLine("RankedRoot=" + layout.RankedRoot);
