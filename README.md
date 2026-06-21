@@ -51,6 +51,13 @@ After the first launch, the client creates a convenience shortcut in the game ro
 
 The root game folder should not contain the ranked launcher binaries anymore.
 
+## Update Source
+
+The in-client updater reads from the repository `main` branch `release/` folder:
+
+- `release/latest.json`
+- `release/SubnauticaSpeedrunningRanked-Beta-0.3.0.zip`
+
 ## Branch Flow
 
 - `development`

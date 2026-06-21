@@ -32,6 +32,7 @@ if ([string]::IsNullOrWhiteSpace($ReleaseVersion)) {
 $ReleaseName = "SubnauticaSpeedrunningRanked-" + $ReleaseVersion
 $packageRoot = Join-Path $releaseRoot $ReleaseName
 $archivePath = Join-Path $releaseRoot ($ReleaseName + ".zip")
+$manifestPath = Join-Path $releaseRoot "latest.json"
 
 function Ensure-Directory {
     param([string] $Path)
@@ -91,5 +92,16 @@ C:\Program Files (x86)\Steam\steamapps\common\Subnautica2018
 Set-Content -Path (Join-Path $packageRoot "INSTALL.txt") -Value $installNotes -Encoding UTF8
 Compress-Archive -Path (Join-Path $packageRoot "*") -DestinationPath $archivePath -Force
 
+$manifest = @"
+{
+  "version": "$ReleaseVersion",
+  "zipFileName": "$ReleaseName.zip",
+  "zipUrl": ""
+}
+"@
+
+Set-Content -Path $manifestPath -Value $manifest -Encoding UTF8
+
 Write-Host "Release package created at: $packageRoot"
 Write-Host "Release archive created at: $archivePath"
+Write-Host "Release manifest created at: $manifestPath"

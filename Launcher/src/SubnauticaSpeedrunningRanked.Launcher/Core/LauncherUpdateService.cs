@@ -1,7 +1,6 @@
 using System.Diagnostics;
 using System.Net.Http;
 using System.Text.Json;
-using System.Text.RegularExpressions;
 using SubnauticaSpeedrunningRanked.Shared;
 
 namespace SubnauticaSpeedrunningRanked.Launcher;
@@ -9,8 +8,6 @@ namespace SubnauticaSpeedrunningRanked.Launcher;
 internal static class LauncherUpdateService
 {
     private static readonly HttpClient HttpClient = CreateHttpClient();
-    private static readonly Regex VersionRegex = new Regex(@"^(?<channel>[A-Za-z]+)-(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)$", RegexOptions.Compiled);
-
     public static bool TryRunUpdateFlow(FileLayout layout, string[] args)
     {
         if (args.Any(static arg => string.Equals(arg, "--skip-update-check", StringComparison.OrdinalIgnoreCase)) ||
@@ -97,9 +94,9 @@ internal static class LauncherUpdateService
 
         try
         {
-            using var request = new HttpRequestMessage(HttpMethod.Get, RankedClientRelease.LatestReleaseApiUrl);
+            using var request = new HttpRequestMessage(HttpMethod.Get, RankedClientRelease.ReleaseManifestUrl);
             request.Headers.UserAgent.ParseAdd("SubnauticaSpeedrunningRanked/" + LauncherVersion.DisplayVersion);
-            request.Headers.Accept.ParseAdd("application/vnd.github+json");
+            request.Headers.Accept.ParseAdd("application/json");
 
             using HttpResponseMessage response = HttpClient.SendAsync(request).GetAwaiter().GetResult();
             if (!response.IsSuccessStatusCode)
@@ -112,38 +109,23 @@ internal static class LauncherUpdateService
             using JsonDocument document = JsonDocument.Parse(json);
             JsonElement root = document.RootElement;
 
-            string versionLabel = ReadString(root, "tag_name");
-            if (string.IsNullOrWhiteSpace(versionLabel))
-            {
-                versionLabel = ReadString(root, "name");
-            }
-
-            if (string.IsNullOrWhiteSpace(versionLabel) || !IsNewerRelease(versionLabel, LauncherVersion.DisplayVersion))
+            string versionLabel = ReadString(root, "version");
+            string zipFileName = ReadString(root, "zipFileName");
+            if (string.IsNullOrWhiteSpace(versionLabel) ||
+                string.IsNullOrWhiteSpace(zipFileName) ||
+                !IsNewerRelease(versionLabel, LauncherVersion.DisplayVersion))
             {
                 return false;
             }
 
-            if (!root.TryGetProperty("assets", out JsonElement assets) || assets.ValueKind != JsonValueKind.Array)
+            string assetUrl = ReadString(root, "zipUrl");
+            if (string.IsNullOrWhiteSpace(assetUrl))
             {
-                LauncherLog.Warn("Update check found a release but no downloadable assets.");
-                return false;
+                assetUrl = RankedClientRelease.ReleaseDownloadBaseUrl + zipFileName;
             }
 
-            foreach (JsonElement asset in assets.EnumerateArray())
-            {
-                string assetName = ReadString(asset, "name");
-                string assetUrl = ReadString(asset, "browser_download_url");
-                if (!string.IsNullOrWhiteSpace(assetUrl) &&
-                    !string.IsNullOrWhiteSpace(assetName) &&
-                    assetName.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
-                {
-                    update = new AvailableUpdate(versionLabel, assetName, assetUrl);
-                    return true;
-                }
-            }
-
-            LauncherLog.Warn("Update check found no zip asset to download.");
-            return false;
+            update = new AvailableUpdate(versionLabel, zipFileName, assetUrl);
+            return true;
         }
         catch (Exception ex)
         {
@@ -192,17 +174,34 @@ internal static class LauncherUpdateService
     private static bool TryParseVersion(string label, out ParsedReleaseVersion version)
     {
         version = default(ParsedReleaseVersion);
-        Match match = VersionRegex.Match(label ?? string.Empty);
-        if (!match.Success)
+        if (string.IsNullOrWhiteSpace(label))
         {
             return false;
         }
 
-        version = new ParsedReleaseVersion(
-            match.Groups["channel"].Value,
-            int.Parse(match.Groups["major"].Value),
-            int.Parse(match.Groups["minor"].Value),
-            int.Parse(match.Groups["patch"].Value));
+        string[] parts = label.Split('-');
+        if (parts.Length != 2)
+        {
+            return false;
+        }
+
+        string[] numericParts = parts[1].Split('.');
+        if (numericParts.Length != 3)
+        {
+            return false;
+        }
+
+        int major;
+        int minor;
+        int patch;
+        if (!int.TryParse(numericParts[0], out major) ||
+            !int.TryParse(numericParts[1], out minor) ||
+            !int.TryParse(numericParts[2], out patch))
+        {
+            return false;
+        }
+
+        version = new ParsedReleaseVersion(parts[0], major, minor, patch);
         return true;
     }
 

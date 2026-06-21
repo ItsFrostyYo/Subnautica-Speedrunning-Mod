@@ -8,7 +8,11 @@ namespace SubnauticaSpeedrunningRanked.Shared
         public const string NumericVersion = "0.3.0.0";
         public const string RepositoryOwner = "ItsFrostyYo";
         public const string RepositoryName = "Subnautica-Speedrunning-Ranked-Mod";
-        public const string LatestReleaseApiUrl =
-            "https://api.github.com/repos/" + RepositoryOwner + "/" + RepositoryName + "/releases/latest";
+        public const string ReleaseBranchName = "main";
+        public const string ReleaseManifestFileName = "latest.json";
+        public const string ReleaseManifestUrl =
+            "https://raw.githubusercontent.com/" + RepositoryOwner + "/" + RepositoryName + "/" + ReleaseBranchName + "/release/" + ReleaseManifestFileName;
+        public const string ReleaseDownloadBaseUrl =
+            "https://raw.githubusercontent.com/" + RepositoryOwner + "/" + RepositoryName + "/" + ReleaseBranchName + "/release/";
     }
 }

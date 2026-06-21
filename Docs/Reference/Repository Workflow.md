@@ -17,7 +17,7 @@ This repo is intended to stay clean for public releases while still letting deve
 3. When the branch is stable, merge `development` into `main`.
 4. Build the public package from `main` with:
    `.\Build-ReleasePackage.ps1 -BuildFirst`
-5. Upload the generated zip from `release\` to the GitHub release page.
+5. Commit the generated `release\latest.json` and the versioned zip in `release\` to `main`.
 
 ## Player install/update flow
 
@@ -38,5 +38,14 @@ This repo should contain only the public mod project:
 - public docs
 - packaging scripts
 - GitHub workflow files
+
+## Updater Source
+
+The launcher updater does not use GitHub Releases.
+
+It reads from the `main` branch `release/` folder instead:
+
+- `release/latest.json`
+- the versioned zip named inside that manifest
 
 Keep private research, external experiments, and unrelated tools outside this repo.
