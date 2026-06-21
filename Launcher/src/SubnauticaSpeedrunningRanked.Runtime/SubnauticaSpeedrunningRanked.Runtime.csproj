@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net35</TargetFramework>
+    <OutputType>Library</OutputType>
+    <ImplicitUsings>false</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <AssemblyName>SubnauticaSpeedrunningRanked.Runtime</AssemblyName>
+    <RootNamespace>SubnauticaSpeedrunningRanked.Runtime</RootNamespace>
+    <LangVersion>7.3</LangVersion>
+    <SubnauticaManagedRoot Condition="'$(SubnauticaManagedRoot)' == ''">C:\Program Files (x86)\Steam\steamapps\common\Subnautica2018\Subnautica_Data\Managed</SubnauticaManagedRoot>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Lib.Harmony" Version="2.3.3" />
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies.net35" Version="1.0.3" PrivateAssets="all" />
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="Assembly-CSharp">
+      <HintPath>$(SubnauticaManagedRoot)\Assembly-CSharp.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Assembly-CSharp-firstpass">
+      <HintPath>$(SubnauticaManagedRoot)\Assembly-CSharp-firstpass.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine">
+      <HintPath>$(SubnauticaManagedRoot)\UnityEngine.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.UI">
+      <HintPath>$(SubnauticaManagedRoot)\UnityEngine.UI.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="..\Shared\RankedCompatibilityProfile.cs" Link="Shared\RankedCompatibilityProfile.cs" />
+    <Compile Include="..\Shared\GameInstallValidator.cs" Link="Shared\GameInstallValidator.cs" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,427 @@
+using System;
+using System.Globalization;
+using System.IO;
+using System.Text;
+using UnityEngine;
+
+namespace SubnauticaSpeedrunningRanked.Runtime.Seeds
+{
+    internal static class RankedSeedSurveyTool
+    {
+        private const float NearbySurveyRadius = 175f;
+        private const string SurveysDirectoryName = "Surveys";
+        private static string _surveysDirectoryPath;
+        private static bool _initialized;
+
+        public static void Update()
+        {
+            if (!_initialized)
+            {
+                EnsureInitialized();
+            }
+
+            if (Player.main == null)
+            {
+                return;
+            }
+
+            if (Input.GetKeyDown(KeyCode.F7))
+            {
+                ExportNearbySurvey();
+            }
+
+            if (Input.GetKeyDown(KeyCode.F8))
+            {
+                ExportActiveTargetSurvey();
+            }
+        }
+
+        private static void EnsureInitialized()
+        {
+            string rankedRoot = PathLayout.GetRankedRoot();
+            _surveysDirectoryPath = Path.Combine(Path.Combine(Path.Combine(rankedRoot, "Data"), "Seeds"), SurveysDirectoryName);
+            Directory.CreateDirectory(_surveysDirectoryPath);
+            _initialized = true;
+        }
+
+        private static void ExportNearbySurvey()
+        {
+            Vector3 playerPosition = Player.main.transform.position;
+            string path = BuildSurveyPath("nearby");
+            StringBuilder builder = new StringBuilder(16384);
+            AppendHeader(builder, "Nearby Survey", playerPosition);
+            builder.AppendLine("Radius=" + NearbySurveyRadius.ToString("0.###", CultureInfo.InvariantCulture));
+            builder.AppendLine();
+
+            AppendNearbySlots(builder, playerPosition);
+            AppendNearbyBreakables(builder, playerPosition);
+            AppendNearbyDrillables(builder, playerPosition);
+            AppendNearbyTechObjects(builder, playerPosition);
+
+            File.WriteAllText(path, builder.ToString());
+            RankedLog.Info("Wrote nearby survival survey to '" + path + "'.");
+        }
+
+        private static void ExportActiveTargetSurvey()
+        {
+            Vector3 playerPosition = Player.main.transform.position;
+            string path = BuildSurveyPath("target");
+            StringBuilder builder = new StringBuilder(8192);
+            AppendHeader(builder, "Target Survey", playerPosition);
+
+            GUIHand hand = Player.main.GetComponent<GUIHand>();
+            GameObject activeTarget = hand != null ? hand.GetActiveTarget() : null;
+            if (activeTarget == null)
+            {
+                builder.AppendLine("No active target found.");
+            }
+            else
+            {
+                AppendGameObjectBlock(builder, "ActiveTarget", activeTarget, playerPosition);
+            }
+
+            File.WriteAllText(path, builder.ToString());
+            RankedLog.Info("Wrote target survey to '" + path + "'.");
+        }
+
+        private static void AppendHeader(StringBuilder builder, string title, Vector3 playerPosition)
+        {
+            builder.AppendLine(title);
+            builder.AppendLine("Timestamp=" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture));
+            builder.AppendLine("SeedId=" + RankedSeedStore.GetActiveSeedId());
+            builder.AppendLine("SeedValue=" + RankedSeedStore.GetActiveSeedValue());
+            builder.AppendLine("Scene=" + UnityEngine.SceneManagement.SceneManager.GetActiveScene().name);
+            builder.AppendLine("PlayerPosition=" + FormatVector(playerPosition));
+            builder.AppendLine("PlayerBiome=" + GetBiomeName(playerPosition));
+        }
+
+        private static void AppendNearbySlots(StringBuilder builder, Vector3 playerPosition)
+        {
+            builder.AppendLine();
+            builder.AppendLine("[EntitySlots]");
+
+            EntitySlot[] slots = UnityEngine.Object.FindObjectsOfType<EntitySlot>();
+            int count = 0;
+            for (int i = 0; i < slots.Length; i++)
+            {
+                EntitySlot slot = slots[i];
+                if (slot == null || Vector3.Distance(playerPosition, slot.transform.position) > NearbySurveyRadius)
+                {
+                    continue;
+                }
+
+                count++;
+                EntitySlot.Filler filler = LargeWorldStreamer.main != null && LargeWorldStreamer.main.cellManager != null
+                    ? LargeWorldStreamer.main.cellManager.GetPrefabForSlot(slot)
+                    : default(EntitySlot.Filler);
+
+                builder.AppendLine(
+                    "Slot|" +
+                    "Distance=" + FormatFloat(Vector3.Distance(playerPosition, slot.transform.position)) +
+                    "|Position=" + FormatVector(slot.transform.position) +
+                    "|Biome=" + slot.biomeType +
+                    "|CreatureSlot=" + slot.IsCreatureSlot() +
+                    "|AutoGenerated=" + slot.autoGenerated +
+                    "|Density=" + FormatFloat(slot.density) +
+                    "|AllowedTypes=" + FormatAllowedTypes(slot) +
+                    "|CurrentClassId=" + (string.IsNullOrEmpty(filler.classId) ? "<none>" : filler.classId) +
+                    "|CurrentCount=" + filler.count);
+            }
+
+            if (count == 0)
+            {
+                builder.AppendLine("None");
+            }
+        }
+
+        private static void AppendNearbyBreakables(StringBuilder builder, Vector3 playerPosition)
+        {
+            builder.AppendLine();
+            builder.AppendLine("[BreakableResources]");
+
+            BreakableResource[] breakables = UnityEngine.Object.FindObjectsOfType<BreakableResource>();
+            int count = 0;
+            for (int i = 0; i < breakables.Length; i++)
+            {
+                BreakableResource breakable = breakables[i];
+                if (breakable == null || Vector3.Distance(playerPosition, breakable.transform.position) > NearbySurveyRadius)
+                {
+                    continue;
+                }
+
+                count++;
+                builder.AppendLine(
+                    "Breakable|" +
+                    "Distance=" + FormatFloat(Vector3.Distance(playerPosition, breakable.transform.position)) +
+                    "|Position=" + FormatVector(breakable.transform.position) +
+                    "|Default=" + GetTechName(breakable.defaultPrefab) +
+                    "|Choices=" + FormatBreakableChoices(breakable));
+            }
+
+            if (count == 0)
+            {
+                builder.AppendLine("None");
+            }
+        }
+
+        private static void AppendNearbyDrillables(StringBuilder builder, Vector3 playerPosition)
+        {
+            builder.AppendLine();
+            builder.AppendLine("[Drillables]");
+
+            Drillable[] drillables = UnityEngine.Object.FindObjectsOfType<Drillable>();
+            int count = 0;
+            for (int i = 0; i < drillables.Length; i++)
+            {
+                Drillable drillable = drillables[i];
+                if (drillable == null || Vector3.Distance(playerPosition, drillable.transform.position) > NearbySurveyRadius)
+                {
+                    continue;
+                }
+
+                count++;
+                builder.AppendLine(
+                    "Drillable|" +
+                    "Distance=" + FormatFloat(Vector3.Distance(playerPosition, drillable.transform.position)) +
+                    "|Position=" + FormatVector(drillable.transform.position) +
+                    "|MinResources=" + drillable.minResourcesToSpawn +
+                    "|MaxResources=" + drillable.maxResourcesToSpawn +
+                    "|Chance=" + FormatFloat(drillable.kChanceToSpawnResources) +
+                    "|Choices=" + FormatDrillableChoices(drillable));
+            }
+
+            if (count == 0)
+            {
+                builder.AppendLine("None");
+            }
+        }
+
+        private static void AppendNearbyTechObjects(StringBuilder builder, Vector3 playerPosition)
+        {
+            builder.AppendLine();
+            builder.AppendLine("[NearbyTechObjects]");
+
+            TechTag[] techTags = UnityEngine.Object.FindObjectsOfType<TechTag>();
+            int count = 0;
+            for (int i = 0; i < techTags.Length; i++)
+            {
+                TechTag techTag = techTags[i];
+                if (techTag == null || techTag.gameObject == null)
+                {
+                    continue;
+                }
+
+                GameObject gameObject = techTag.gameObject;
+                if (gameObject == Player.main.gameObject || gameObject.transform.IsChildOf(Player.main.transform))
+                {
+                    continue;
+                }
+
+                float distance = Vector3.Distance(playerPosition, gameObject.transform.position);
+                if (distance > NearbySurveyRadius)
+                {
+                    continue;
+                }
+
+                TechType techType = CraftData.GetTechType(gameObject);
+                if (techType == TechType.None)
+                {
+                    continue;
+                }
+
+                count++;
+                builder.AppendLine(
+                    "TechObject|" +
+                    "Distance=" + FormatFloat(distance) +
+                    "|Position=" + FormatVector(gameObject.transform.position) +
+                    "|TechType=" + techType +
+                    "|Name=" + gameObject.name +
+                    "|Hierarchy=" + BuildHierarchyPath(gameObject.transform));
+            }
+
+            if (count == 0)
+            {
+                builder.AppendLine("None");
+            }
+        }
+
+        private static void AppendGameObjectBlock(StringBuilder builder, string sectionName, GameObject gameObject, Vector3 playerPosition)
+        {
+            builder.AppendLine();
+            builder.AppendLine("[" + sectionName + "]");
+            builder.AppendLine("Name=" + gameObject.name);
+            builder.AppendLine("Position=" + FormatVector(gameObject.transform.position));
+            builder.AppendLine("Distance=" + FormatFloat(Vector3.Distance(playerPosition, gameObject.transform.position)));
+            builder.AppendLine("Biome=" + GetBiomeName(gameObject.transform.position));
+            builder.AppendLine("Hierarchy=" + BuildHierarchyPath(gameObject.transform));
+            builder.AppendLine("TechType=" + CraftData.GetTechType(gameObject));
+
+            EntitySlot slot = gameObject.GetComponent<EntitySlot>();
+            if (slot != null)
+            {
+                EntitySlot.Filler filler = LargeWorldStreamer.main != null && LargeWorldStreamer.main.cellManager != null
+                    ? LargeWorldStreamer.main.cellManager.GetPrefabForSlot(slot)
+                    : default(EntitySlot.Filler);
+
+                builder.AppendLine("Slot.Biome=" + slot.biomeType);
+                builder.AppendLine("Slot.CreatureSlot=" + slot.IsCreatureSlot());
+                builder.AppendLine("Slot.AutoGenerated=" + slot.autoGenerated);
+                builder.AppendLine("Slot.AllowedTypes=" + FormatAllowedTypes(slot));
+                builder.AppendLine("Slot.CurrentClassId=" + (string.IsNullOrEmpty(filler.classId) ? "<none>" : filler.classId));
+                builder.AppendLine("Slot.CurrentCount=" + filler.count);
+            }
+
+            BreakableResource breakable = gameObject.GetComponent<BreakableResource>();
+            if (breakable != null)
+            {
+                builder.AppendLine("Breakable.Default=" + GetTechName(breakable.defaultPrefab));
+                builder.AppendLine("Breakable.Choices=" + FormatBreakableChoices(breakable));
+            }
+
+            Drillable drillable = gameObject.GetComponent<Drillable>();
+            if (drillable != null)
+            {
+                builder.AppendLine("Drillable.MinResources=" + drillable.minResourcesToSpawn);
+                builder.AppendLine("Drillable.MaxResources=" + drillable.maxResourcesToSpawn);
+                builder.AppendLine("Drillable.Chance=" + FormatFloat(drillable.kChanceToSpawnResources));
+                builder.AppendLine("Drillable.Choices=" + FormatDrillableChoices(drillable));
+            }
+        }
+
+        private static string BuildSurveyPath(string prefix)
+        {
+            return Path.Combine(
+                _surveysDirectoryPath,
+                prefix + "-" + DateTime.Now.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture) + ".txt");
+        }
+
+        private static string GetBiomeName(Vector3 position)
+        {
+            try
+            {
+                if (LargeWorld.main != null)
+                {
+                    return LargeWorld.main.GetBiome(position);
+                }
+            }
+            catch
+            {
+            }
+
+            return "Unknown";
+        }
+
+        private static string FormatAllowedTypes(EntitySlot slot)
+        {
+            if (slot == null || slot.allowedTypes == null || slot.allowedTypes.Count == 0)
+            {
+                return "<none>";
+            }
+
+            StringBuilder builder = new StringBuilder();
+            for (int i = 0; i < slot.allowedTypes.Count; i++)
+            {
+                if (i > 0)
+                {
+                    builder.Append(",");
+                }
+
+                builder.Append(slot.allowedTypes[i]);
+            }
+
+            return builder.ToString();
+        }
+
+        private static string FormatBreakableChoices(BreakableResource breakable)
+        {
+            if (breakable == null || breakable.prefabList == null || breakable.prefabList.Count == 0)
+            {
+                return "<none>";
+            }
+
+            StringBuilder builder = new StringBuilder();
+            for (int i = 0; i < breakable.prefabList.Count; i++)
+            {
+                BreakableResource.RandomPrefab choice = breakable.prefabList[i];
+                if (i > 0)
+                {
+                    builder.Append(";");
+                }
+
+                builder.Append(GetTechName(choice.prefab));
+                builder.Append("@");
+                builder.Append(FormatFloat(choice.chance));
+            }
+
+            return builder.ToString();
+        }
+
+        private static string FormatDrillableChoices(Drillable drillable)
+        {
+            if (drillable == null || drillable.resources == null || drillable.resources.Length == 0)
+            {
+                return "<none>";
+            }
+
+            StringBuilder builder = new StringBuilder();
+            for (int i = 0; i < drillable.resources.Length; i++)
+            {
+                Drillable.ResourceType choice = drillable.resources[i];
+                if (i > 0)
+                {
+                    builder.Append(";");
+                }
+
+                builder.Append(choice.techType);
+                builder.Append("@");
+                builder.Append(FormatFloat(choice.chance));
+            }
+
+            return builder.ToString();
+        }
+
+        private static string GetTechName(GameObject prefab)
+        {
+            if (prefab == null)
+            {
+                return "<none>";
+            }
+
+            TechType techType = CraftData.GetTechType(prefab);
+            return techType == TechType.None ? prefab.name : techType.ToString();
+        }
+
+        private static string BuildHierarchyPath(Transform transform)
+        {
+            if (transform == null)
+            {
+                return string.Empty;
+            }
+
+            StringBuilder builder = new StringBuilder(transform.name);
+            Transform current = transform.parent;
+            while (current != null)
+            {
+                builder.Insert(0, current.name + "/");
+                current = current.parent;
+            }
+
+            return builder.ToString();
+        }
+
+        private static string FormatVector(Vector3 vector)
+        {
+            return string.Format(
+                CultureInfo.InvariantCulture,
+                "{0:0.###},{1:0.###},{2:0.###}",
+                vector.x,
+                vector.y,
+                vector.z);
+        }
+
+        private static string FormatFloat(float value)
+        {
+            return value.ToString("0.###", CultureInfo.InvariantCulture);
+        }
+    }
+}

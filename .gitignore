@@ -1,0 +1,20 @@
+# Build output
+**/bin/
+**/obj/
+Launcher/dist/
+
+# Local release artifacts
+release/*
+!release/README.md
+
+# Local editor noise
+.vs/
+*.user
+*.suo
+*.cache
+*.pdb
+
+# Runtime/package noise
+*.log
+Thumbs.db
+Desktop.ini
