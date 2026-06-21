@@ -23,7 +23,7 @@ namespace SubnauticaSpeedrunningRanked.Runtime.Seeds
             }
 
             _installed = true;
-            RankedLog.Info("Ranked seed runtime armed. Always-active hooks will install once the main menu runtime is active, before any save begins loading. Deterministic survival seed multipliers and manual creature spawn rules will resolve from the active seed definition.");
+            RankedLog.Info("Ranked seed runtime armed. Shared runtime hooks will install at a safe in-game phase after the supported save has fully entered gameplay. Deterministic survival seed multipliers and manual creature spawn rules will resolve from the active seed definition.");
         }
 
         public static RankedSeedRuntimeProfile GetProfile()
@@ -126,7 +126,7 @@ namespace SubnauticaSpeedrunningRanked.Runtime.Seeds
                 _lootDistributionHookInstalled = false;
                 _forceSecondGoldHookInstalled = RankedForceSecondGoldRuntime.Install(_harmony);
                 RankedLog.Info(
-                    "Installed always-active seed runtime at safe main-menu phase. Live-data systems remain primary, with targeted Harmony only where deterministic runtime correction is required. FishSchools=" +
+                    "Installed always-active seed runtime at safe in-game phase. Live-data systems remain primary, with targeted Harmony only where deterministic runtime correction is required. FishSchools=" +
                     _fishSchoolHooksInstalled +
                     ", StalkerTooth=" +
                     _stalkerToothHookInstalled +

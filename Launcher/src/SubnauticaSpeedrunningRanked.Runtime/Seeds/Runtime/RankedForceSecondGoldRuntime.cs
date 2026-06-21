@@ -1,5 +1,7 @@
 using System;
-using System.Collections.Generic;
+using System.Collections;
+using System.Globalization;
+using System.IO;
 using System.Reflection;
 using HarmonyLib;
 using UnityEngine;
@@ -8,7 +10,7 @@ namespace SubnauticaSpeedrunningRanked.Runtime.Seeds
 {
     internal static class RankedForceSecondGoldRuntime
     {
-        private sealed class SandstoneProfile
+        private struct SandstoneProfile
         {
             public GameObject GoldPrefab;
             public float SilverChance;
@@ -21,9 +23,27 @@ namespace SubnauticaSpeedrunningRanked.Runtime.Seeds
         private static readonly BindingFlags StaticFlags = BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
         private static readonly BindingFlags InstanceFlags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
 
-        private static readonly FieldInfo PlayerMainField = typeof(Player).GetField("main", StaticFlags);
-        private static readonly FieldInfo FairRandomizerEntropyField = typeof(FairRandomizer).GetField("entropy", InstanceFlags);
+        private static readonly Type BreakableResourceType = ResolveType("BreakableResource, Assembly-CSharp");
+        private static readonly Type PlayerType = ResolveType("Player, Assembly-CSharp");
+        private static readonly Type PlayerEntropyType = ResolveType("PlayerEntropy, Assembly-CSharp");
+        private static readonly MethodInfo ChooseRandomResourceMethod = BreakableResourceType == null
+            ? null
+            : BreakableResourceType.GetMethod("ChooseRandomResource", InstanceFlags, null, Type.EmptyTypes, null);
+        private static readonly FieldInfo DefaultPrefabField = FindField(BreakableResourceType, "defaultPrefab");
+        private static readonly FieldInfo PrefabListField = FindField(BreakableResourceType, "prefabList");
+        private static readonly FieldInfo RandomPrefabPrefabField = FindField(ResolveType("BreakableResource+RandomPrefab, Assembly-CSharp"), "prefab");
+        private static readonly FieldInfo RandomPrefabChanceField = FindField(ResolveType("BreakableResource+RandomPrefab, Assembly-CSharp"), "chance");
+        private static readonly MethodInfo CraftDataGetTechTypeMethod = FindCraftDataGetTechTypeMethod(ResolveType("CraftData, Assembly-CSharp"));
+        private static readonly MethodInfo GameObjectGetComponentByTypeMethod = typeof(GameObject).GetMethod("GetComponent", new[] { typeof(Type) });
+        private static readonly FieldInfo PlayerMainField = FindField(PlayerType, "main");
+        private static readonly PropertyInfo PlayerMainProperty = FindProperty(PlayerType, "main");
+        private static readonly FieldInfo PlayerEntropyRandomizersField = FindField(PlayerEntropyType, "randomizers");
+        private static readonly FieldInfo TechEntropyTechTypeField = FindField(ResolveType("PlayerEntropy+TechEntropy, Assembly-CSharp"), "techType");
+        private static readonly FieldInfo TechEntropyEntropyField = FindField(ResolveType("PlayerEntropy+TechEntropy, Assembly-CSharp"), "entropy");
+        private static readonly FieldInfo FairRandomizerEntropyField = FindField(ResolveType("FairRandomizer, Assembly-CSharp"), "entropy");
 
+        private static bool _initialized;
+        private static bool _available = true;
         private static bool _installed;
         private static string _activeSlotPath = string.Empty;
         private static bool _activeSlotEligible;
@@ -32,28 +52,55 @@ namespace SubnauticaSpeedrunningRanked.Runtime.Seeds
 
         public static bool Install(Harmony harmony)
         {
-            if (_installed)
+            if (_initialized)
             {
-                return true;
+                return _available && _installed;
             }
 
+            _initialized = true;
             if (harmony == null)
             {
+                _available = false;
                 return false;
             }
 
-            MethodInfo target = typeof(BreakableResource).GetMethod("ChooseRandomResource", InstanceFlags, null, Type.EmptyTypes, null);
-            MethodInfo postfix = typeof(RankedForceSecondGoldRuntime).GetMethod("ChooseRandomResourcePostfix", StaticFlags);
-            if (target == null || postfix == null)
+            if (ChooseRandomResourceMethod == null ||
+                DefaultPrefabField == null ||
+                PrefabListField == null ||
+                RandomPrefabPrefabField == null ||
+                RandomPrefabChanceField == null ||
+                CraftDataGetTechTypeMethod == null ||
+                GameObjectGetComponentByTypeMethod == null ||
+                PlayerEntropyRandomizersField == null ||
+                TechEntropyTechTypeField == null ||
+                TechEntropyEntropyField == null ||
+                FairRandomizerEntropyField == null)
             {
-                RankedLog.Warn("Force 2nd Gold patch unavailable because sandstone hook targets could not be resolved.");
+                _available = false;
+                RankedLog.Warn("Force 2nd Gold patch unavailable; required sandstone reflection hooks were not found.");
                 return false;
             }
 
-            harmony.Patch(target, postfix: new HarmonyMethod(postfix));
-            _installed = true;
-            RankedLog.Info("Installed Force 2nd Gold sandstone patch.");
-            return true;
+            try
+            {
+                MethodInfo postfix = typeof(RankedForceSecondGoldRuntime).GetMethod("ChooseRandomResourcePostfix", StaticFlags);
+                if (postfix == null)
+                {
+                    _available = false;
+                    return false;
+                }
+
+                harmony.Patch(ChooseRandomResourceMethod, postfix: new HarmonyMethod(postfix));
+                _installed = true;
+                RankedLog.Info("Installed sandstone Force 2nd Gold patch.");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _available = false;
+                RankedLog.Warn("Failed to install Force 2nd Gold patch: " + ex.Message);
+                return false;
+            }
         }
 
         public static void UpdateSessionState(string saveSlot, bool isEligible)
@@ -70,6 +117,11 @@ namespace SubnauticaSpeedrunningRanked.Runtime.Seeds
                 ResetRunState(normalizedSlotPath);
             }
 
+            if (!_activeSlotEligible && isEligible)
+            {
+                ResetCounters(normalizedSlotPath);
+            }
+
             _activeSlotEligible = isEligible;
         }
 
@@ -78,28 +130,33 @@ namespace SubnauticaSpeedrunningRanked.Runtime.Seeds
             ResetRunState(string.Empty);
         }
 
-        private static void ChooseRandomResourcePostfix(BreakableResource __instance, ref GameObject __result)
+        private static void ChooseRandomResourcePostfix(object __instance, ref GameObject __result)
         {
             try
             {
-                if (!ShouldApply() || __instance == null || _sandstoneBrokenThisRun >= SandstoneWindowSize || _goldSeenThisRun >= RequiredGolds)
+                if (!ShouldApply() || __instance == null)
+                {
+                    return;
+                }
+
+                if (_sandstoneBrokenThisRun >= SandstoneWindowSize || _goldSeenThisRun >= RequiredGolds)
                 {
                     return;
                 }
 
                 SandstoneProfile profile;
-                if (!TryGetSandstoneProfile(__instance, out profile) || profile == null || profile.GoldPrefab == null)
+                if (!TryGetSandstoneProfile(__instance, out profile) || profile.GoldPrefab == null)
                 {
                     return;
                 }
 
                 int sandstoneBreakNumber = _sandstoneBrokenThisRun + 1;
-                bool resultIsGold = IsPrefabTechType(__result, TechType.Gold);
-                bool originalWasSilver = IsPrefabTechType(__result, TechType.Silver);
+                bool resultIsGold = IsPrefabTechType(__result, "Gold");
+                bool originalWasSilver = IsPrefabTechType(__result, "Silver");
+                bool mustForceGold = !resultIsGold &&
+                    _goldSeenThisRun + (SandstoneWindowSize - sandstoneBreakNumber) < RequiredGolds;
 
-                if (!resultIsGold &&
-                    _goldSeenThisRun + (SandstoneWindowSize - sandstoneBreakNumber) < RequiredGolds &&
-                    TryApplyForcedGoldEntropy(originalWasSilver, profile.SilverChance))
+                if (mustForceGold && TryApplyForcedGoldEntropy(originalWasSilver, profile.SilverChance))
                 {
                     __result = profile.GoldPrefab;
                     resultIsGold = true;
@@ -108,7 +165,9 @@ namespace SubnauticaSpeedrunningRanked.Runtime.Seeds
                         sandstoneBreakNumber +
                         " of " +
                         SandstoneWindowSize +
-                        " for slot '" +
+                        "; priorGolds=" +
+                        _goldSeenThisRun +
+                        "; slot='" +
                         _activeSlotPath +
                         "'.");
                 }
@@ -121,50 +180,67 @@ namespace SubnauticaSpeedrunningRanked.Runtime.Seeds
             }
             catch (Exception ex)
             {
-                RankedLog.Warn("Force 2nd Gold sandstone patch fell back to vanilla result: " + ex.Message);
+                RankedLog.Warn("Force 2nd Gold patch failed: " + ex.Message);
             }
         }
 
         private static bool ShouldApply()
         {
             RankedSeedRuntimeProfile profile = RankedSeedRuntimeHost.GetProfile();
-            return _installed &&
-                   _activeSlotEligible &&
-                   profile != null &&
-                   profile.ForceSecondGold &&
-                   RankedSeedRuntimeHost.IsSupportedGameplayMode();
+            return _available &&
+                _installed &&
+                _activeSlotEligible &&
+                profile != null &&
+                profile.ForceSecondGold &&
+                RankedSeedRuntimeHost.IsSurvivalLikeMode();
         }
 
-        private static bool TryGetSandstoneProfile(BreakableResource resource, out SandstoneProfile profile)
+        private static bool TryGetSandstoneProfile(object resource, out SandstoneProfile profile)
         {
-            profile = null;
-            if (resource == null || !IsPrefabTechType(resource.defaultPrefab, TechType.Lead) || resource.prefabList == null || resource.prefabList.Count == 0)
+            profile = default(SandstoneProfile);
+
+            GameObject defaultPrefab = DefaultPrefabField.GetValue(resource) as GameObject;
+            if (!IsPrefabTechType(defaultPrefab, "Lead"))
             {
                 return false;
             }
 
-            profile = new SandstoneProfile();
-            for (int i = 0; i < resource.prefabList.Count; i++)
+            IList prefabs = PrefabListField.GetValue(resource) as IList;
+            if (prefabs == null || prefabs.Count == 0)
             {
-                BreakableResource.RandomPrefab entry = resource.prefabList[i];
-                if (entry == null || entry.prefab == null)
+                return false;
+            }
+
+            bool foundGold = false;
+            bool foundSilver = false;
+            for (int i = 0; i < prefabs.Count; i++)
+            {
+                object randomPrefab = prefabs[i];
+                if (randomPrefab == null)
                 {
                     continue;
                 }
 
-                if (IsPrefabTechType(entry.prefab, TechType.Gold))
+                GameObject prefab = RandomPrefabPrefabField.GetValue(randomPrefab) as GameObject;
+                float chance = ReadSingle(RandomPrefabChanceField.GetValue(randomPrefab), 0f);
+                if (prefab == null)
                 {
-                    profile.GoldPrefab = entry.prefab;
                     continue;
                 }
 
-                if (IsPrefabTechType(entry.prefab, TechType.Silver))
+                if (IsPrefabTechType(prefab, "Gold"))
                 {
-                    profile.SilverChance = entry.chance;
+                    profile.GoldPrefab = prefab;
+                    foundGold = true;
+                }
+                else if (IsPrefabTechType(prefab, "Silver"))
+                {
+                    profile.SilverChance = chance;
+                    foundSilver = true;
                 }
             }
 
-            if (profile.GoldPrefab == null)
+            if (!foundGold || !foundSilver)
             {
                 return false;
             }
@@ -179,83 +255,103 @@ namespace SubnauticaSpeedrunningRanked.Runtime.Seeds
 
         private static bool TryApplyForcedGoldEntropy(bool originalWasSilver, float silverChance)
         {
-            PlayerEntropy playerEntropy = GetPlayerEntropy();
-            if (playerEntropy == null)
+            object player = ReadStaticMember(PlayerMainField, PlayerMainProperty);
+            object playerEntropy;
+            if (player == null || !TryGetPlayerEntropyComponent(player, out playerEntropy))
             {
                 return false;
             }
 
-            if (!TryAdjustEntropy(playerEntropy, TechType.Gold, -1f))
+            if (!TryAdjustEntropy(playerEntropy, "Gold", -1f))
             {
                 return false;
             }
 
             if (originalWasSilver)
             {
-                return TryAdjustEntropy(playerEntropy, TechType.Silver, 1f - silverChance);
+                return TryAdjustEntropy(playerEntropy, "Silver", 1f - silverChance);
             }
 
-            return TryAdjustEntropy(playerEntropy, TechType.Silver, 0f - silverChance);
+            return TryAdjustEntropy(playerEntropy, "Silver", -silverChance);
         }
 
-        private static PlayerEntropy GetPlayerEntropy()
+        private static bool TryGetPlayerEntropyComponent(object player, out object playerEntropy)
         {
-            try
-            {
-                Player player = PlayerMainField != null ? PlayerMainField.GetValue(null) as Player : Player.main;
-                return player != null ? player.GetComponent<PlayerEntropy>() : null;
-            }
-            catch
-            {
-                return null;
-            }
-        }
-
-        private static bool TryAdjustEntropy(PlayerEntropy playerEntropy, TechType techType, float delta)
-        {
-            if (playerEntropy == null || playerEntropy.randomizers == null)
+            playerEntropy = null;
+            if (PlayerEntropyType == null || player == null || GameObjectGetComponentByTypeMethod == null)
             {
                 return false;
             }
 
-            for (int i = 0; i < playerEntropy.randomizers.Count; i++)
+            try
             {
-                PlayerEntropy.TechEntropy entry = playerEntropy.randomizers[i];
-                if (entry == null || entry.techType != techType || entry.entropy == null)
+                GameObject gameObject = (player as Component)?.gameObject;
+                if (gameObject == null)
+                {
+                    return false;
+                }
+
+                playerEntropy = GameObjectGetComponentByTypeMethod.Invoke(gameObject, new object[] { PlayerEntropyType });
+                return playerEntropy != null;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static bool TryAdjustEntropy(object playerEntropy, string techTypeName, float delta)
+        {
+            if (playerEntropy == null || IsBlank(techTypeName))
+            {
+                return false;
+            }
+
+            IList randomizers = PlayerEntropyRandomizersField.GetValue(playerEntropy) as IList;
+            if (randomizers == null)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < randomizers.Count; i++)
+            {
+                object techEntropy = randomizers[i];
+                if (techEntropy == null)
                 {
                     continue;
                 }
 
-                float currentEntropy = entry.entropy.entropy;
-                if (FairRandomizerEntropyField != null)
+                object techType = TechEntropyTechTypeField.GetValue(techEntropy);
+                if (!string.Equals(techType == null ? string.Empty : techType.ToString(), techTypeName, StringComparison.OrdinalIgnoreCase))
                 {
-                    try
-                    {
-                        FairRandomizerEntropyField.SetValue(entry.entropy, currentEntropy + delta);
-                        return true;
-                    }
-                    catch
-                    {
-                    }
+                    continue;
                 }
 
-                entry.entropy.entropy = currentEntropy + delta;
+                object fairRandomizer = TechEntropyEntropyField.GetValue(techEntropy);
+                if (fairRandomizer == null)
+                {
+                    return false;
+                }
+
+                float currentEntropy = ReadSingle(FairRandomizerEntropyField.GetValue(fairRandomizer), 0f);
+                FairRandomizerEntropyField.SetValue(fairRandomizer, currentEntropy + delta);
                 return true;
             }
 
             return false;
         }
 
-        private static bool IsPrefabTechType(GameObject prefab, TechType expectedTechType)
+        private static bool IsPrefabTechType(GameObject prefab, string techTypeName)
         {
-            if (prefab == null)
+            if (prefab == null || IsBlank(techTypeName) || CraftDataGetTechTypeMethod == null)
             {
                 return false;
             }
 
             try
             {
-                return CraftData.GetTechType(prefab) == expectedTechType;
+                object techType = CraftDataGetTechTypeMethod.Invoke(null, new object[] { prefab });
+                return string.Equals(techType == null ? string.Empty : techType.ToString(), techTypeName, StringComparison.OrdinalIgnoreCase);
             }
             catch
             {
@@ -265,20 +361,158 @@ namespace SubnauticaSpeedrunningRanked.Runtime.Seeds
 
         private static void ResetRunState(string slotPath)
         {
-            _activeSlotPath = slotPath ?? string.Empty;
+            _activeSlotPath = NormalizeSlot(slotPath);
             _activeSlotEligible = false;
+            _sandstoneBrokenThisRun = 0;
+            _goldSeenThisRun = 0;
+        }
+
+        private static void ResetCounters(string slotPath)
+        {
+            _activeSlotPath = NormalizeSlot(slotPath);
             _sandstoneBrokenThisRun = 0;
             _goldSeenThisRun = 0;
         }
 
         private static string NormalizeSlot(string saveSlot)
         {
-            if (string.IsNullOrEmpty(saveSlot))
+            if (IsBlank(saveSlot))
             {
                 return string.Empty;
             }
 
-            return saveSlot.Trim();
+            try
+            {
+                return Path.GetFullPath(saveSlot).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            }
+            catch
+            {
+                return saveSlot.Trim();
+            }
+        }
+
+        private static object ReadStaticMember(FieldInfo field, PropertyInfo property)
+        {
+            try
+            {
+                if (field != null)
+                {
+                    return field.GetValue(null);
+                }
+
+                if (property != null)
+                {
+                    return property.GetValue(null, null);
+                }
+            }
+            catch
+            {
+            }
+
+            return null;
+        }
+
+        private static float ReadSingle(object value, float fallback)
+        {
+            try
+            {
+                if (value == null)
+                {
+                    return fallback;
+                }
+
+                return Convert.ToSingle(value, CultureInfo.InvariantCulture);
+            }
+            catch
+            {
+                return fallback;
+            }
+        }
+
+        private static Type ResolveType(string qualifiedName)
+        {
+            try
+            {
+                Type resolved = Type.GetType(qualifiedName, false);
+                if (resolved != null)
+                {
+                    return resolved;
+                }
+
+                int commaIndex = qualifiedName.IndexOf(',');
+                string typeName = commaIndex > 0 ? qualifiedName.Substring(0, commaIndex).Trim() : qualifiedName.Trim();
+                Assembly[] assemblies = AppDomain.CurrentDomain.GetAssemblies();
+                for (int i = 0; i < assemblies.Length; i++)
+                {
+                    try
+                    {
+                        resolved = assemblies[i].GetType(typeName, false);
+                        if (resolved != null)
+                        {
+                            return resolved;
+                        }
+                    }
+                    catch
+                    {
+                    }
+                }
+            }
+            catch
+            {
+            }
+
+            return null;
+        }
+
+        private static FieldInfo FindField(Type declaringType, string name)
+        {
+            if (declaringType == null || IsBlank(name))
+            {
+                return null;
+            }
+
+            return declaringType.GetField(name, StaticFlags | InstanceFlags);
+        }
+
+        private static PropertyInfo FindProperty(Type declaringType, string name)
+        {
+            if (declaringType == null || IsBlank(name))
+            {
+                return null;
+            }
+
+            return declaringType.GetProperty(name, StaticFlags | InstanceFlags);
+        }
+
+        private static MethodInfo FindCraftDataGetTechTypeMethod(Type craftDataType)
+        {
+            if (craftDataType == null)
+            {
+                return null;
+            }
+
+            MethodInfo[] methods = craftDataType.GetMethods(StaticFlags);
+            for (int i = 0; i < methods.Length; i++)
+            {
+                MethodInfo method = methods[i];
+                if (!string.Equals(method.Name, "GetTechType", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                ParameterInfo[] parameters = method.GetParameters();
+                if (parameters != null && parameters.Length == 1 && parameters[0].ParameterType == typeof(GameObject))
+                {
+                    return method;
+                }
+            }
+
+            return null;
+        }
+
+        private static bool IsBlank(string value)
+        {
+            return value == null || value.Trim().Length == 0;
         }
     }
 }

@@ -1,5 +1,5 @@
 param(
-    [string]$GameRoot = "C:\Program Files (x86)\Steam\steamapps\common\Subnautica2018",
+    [string]$GameRoot = "",
     [string]$SeedFile,
     [string]$SeedId,
     [string]$SeedValue,
@@ -14,6 +14,21 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
+
+function Resolve-DefaultGameRoot {
+    $candidates = @(
+        "C:\Program Files (x86)\Steam\steamapps\common\Subnautica2018",
+        "C:\Program Files (x86)\Steam\steamapps\common\Subnautica"
+    )
+
+    foreach ($candidate in $candidates) {
+        if (Test-Path (Join-Path $candidate "Subnautica.exe")) {
+            return $candidate
+        }
+    }
+
+    return $candidates[0]
+}
 
 if (-not ("RankedSeedMath" -as [type])) {
     $seedMathCode = @"
@@ -430,6 +445,10 @@ function Format-ResolvedSeedText {
     }
 
     return $builder.ToString().TrimEnd()
+}
+
+if ([string]::IsNullOrWhiteSpace($GameRoot)) {
+    $GameRoot = Resolve-DefaultGameRoot
 }
 
 if ([string]::IsNullOrWhiteSpace($SeedFile)) {

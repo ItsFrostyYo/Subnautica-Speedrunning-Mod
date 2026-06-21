@@ -33,6 +33,11 @@ namespace SubnauticaSpeedrunningRanked.Runtime.Seeds
                 return;
             }
 
+            if (inGame)
+            {
+                RankedSeedRuntimeHost.EnsureAlwaysActiveHooksInstalled();
+            }
+
             bool includeSurvivalSeedGroups = RankedSeedRuntimeHost.IsSurvivalLikeMode();
 
             if (Time.unscaledTime >= _nextLootSweepAt)

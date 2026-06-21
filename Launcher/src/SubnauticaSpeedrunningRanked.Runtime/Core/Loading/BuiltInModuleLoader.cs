@@ -11,14 +11,20 @@ namespace SubnauticaSpeedrunningRanked.Runtime
         public static IList<IRankedModule> LoadModules(RuntimeContext context)
         {
             List<IRankedModule> modules = new List<IRankedModule>();
-            InitializeModule(modules, new RankedSeedModule(), context);
-            InitializeModule(modules, new RankedUiCustomizationModule(), context);
-            InitializeModule(modules, new RankedRunTrackingModule(), context);
+            InitializeModule(modules, new RankedSeedModule(), context, "seeds");
+            InitializeModule(modules, new RankedUiCustomizationModule(), context, "ui");
+            InitializeModule(modules, new RankedRunTrackingModule(), context, "runtracking");
             return modules;
         }
 
-        private static void InitializeModule(ICollection<IRankedModule> modules, IRankedModule module, RuntimeContext context)
+        private static void InitializeModule(ICollection<IRankedModule> modules, IRankedModule module, RuntimeContext context, string moduleToken)
         {
+            if (!ShouldLoadModule(moduleToken))
+            {
+                RankedLog.Info("Skipped built-in module " + module.Name + " due to RANKED_ENABLE_ONLY_MODULES filter.");
+                return;
+            }
+
             try
             {
                 module.Initialize(context);
@@ -29,6 +35,27 @@ namespace SubnauticaSpeedrunningRanked.Runtime
             {
                 RankedLog.Error("Failed to initialize built-in module " + module.Name + ".", ex);
             }
+        }
+
+        private static bool ShouldLoadModule(string moduleToken)
+        {
+            string filter = Environment.GetEnvironmentVariable("RANKED_ENABLE_ONLY_MODULES");
+            if (string.IsNullOrEmpty(filter))
+            {
+                return true;
+            }
+
+            string[] tokens = filter.Split(new[] { ',', ';', '|' }, StringSplitOptions.RemoveEmptyEntries);
+            for (int i = 0; i < tokens.Length; i++)
+            {
+                string currentToken = tokens[i].Trim();
+                if (string.Equals(currentToken, moduleToken, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
     }
 }

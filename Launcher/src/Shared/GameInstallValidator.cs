@@ -124,12 +124,7 @@ namespace SubnauticaSpeedrunningRanked.Shared
 
             string folderName = new DirectoryInfo(gameRoot).Name;
             report.SetObserved("ObservedFolderName", folderName);
-            if (!string.Equals(folderName, RankedCompatibilityProfile.RequiredFolderName, StringComparison.OrdinalIgnoreCase))
-            {
-                report.AddWarning("Game folder name is '" + folderName + "' instead of '" + RankedCompatibilityProfile.RequiredFolderName + "'.");
-            }
 
-            string versionInfoPath = Path.Combine(gameRoot, "Version.info");
             string buildNumberPath = Path.Combine(gameRoot, "__buildnumber.txt");
             string buildTimePath = Path.Combine(gameRoot, "__buildtime.txt");
             string subnauticaExePath = Path.Combine(gameRoot, "Subnautica.exe");
@@ -139,7 +134,6 @@ namespace SubnauticaSpeedrunningRanked.Shared
             string assemblyCSharpFirstpassPath = Path.Combine(managedRoot, "Assembly-CSharp-firstpass.dll");
             string bepinexPath = Path.Combine(gameRoot, "BepInEx");
 
-            ValidateFileExists(report, versionInfoPath);
             ValidateFileExists(report, buildNumberPath);
             ValidateFileExists(report, buildTimePath);
             ValidateFileExists(report, subnauticaExePath);
@@ -150,21 +144,6 @@ namespace SubnauticaSpeedrunningRanked.Shared
             if (Directory.Exists(bepinexPath))
             {
                 report.AddError("A BepInEx folder was detected. Ranked requires a clean base game install.");
-            }
-
-            if (File.Exists(versionInfoPath))
-            {
-                Dictionary<string, string> versionInfo = ParseKeyValueFile(versionInfoPath);
-                SetObservedIfPresent(report, versionInfo, "DisplayName");
-                SetObservedIfPresent(report, versionInfo, "FolderName");
-                SetObservedIfPresent(report, versionInfo, "OriginalDownload");
-                SetObservedIfPresent(report, versionInfo, "Modded");
-
-                RequireValue(report, versionInfo, "DisplayName", RankedCompatibilityProfile.RequiredDisplayName);
-                RequireValue(report, versionInfo, "FolderName", RankedCompatibilityProfile.RequiredFolderName);
-                RequireValue(report, versionInfo, "OriginalDownload", RankedCompatibilityProfile.RequiredOriginalDownload);
-                RequireValue(report, versionInfo, "Modded", RankedCompatibilityProfile.RequiredModdedValue);
-                ValidateHash(report, versionInfoPath, RankedCompatibilityProfile.RequiredVersionInfoSha256, "Version.info SHA256");
             }
 
             if (File.Exists(buildNumberPath))
@@ -214,30 +193,6 @@ namespace SubnauticaSpeedrunningRanked.Shared
             }
         }
 
-        private static void SetObservedIfPresent(GameInstallValidationReport report, IDictionary<string, string> values, string key)
-        {
-            string value = string.Empty;
-            if (values.TryGetValue(key, out value))
-            {
-                report.SetObserved(key, value);
-            }
-        }
-
-        private static void RequireValue(GameInstallValidationReport report, IDictionary<string, string> values, string key, string expectedValue)
-        {
-            string value = string.Empty;
-            if (!values.TryGetValue(key, out value))
-            {
-                report.AddError("Version.info is missing '" + key + "'.");
-                return;
-            }
-
-            if (!string.Equals(value, expectedValue, StringComparison.Ordinal))
-            {
-                report.AddError("Version.info " + key + "='" + value + "' does not match required value '" + expectedValue + "'.");
-            }
-        }
-
         private static void ValidateHash(GameInstallValidationReport report, string path, string expectedHash, string label)
         {
             if (!File.Exists(path))
@@ -267,27 +222,6 @@ namespace SubnauticaSpeedrunningRanked.Shared
 
                 return builder.ToString();
             }
-        }
-
-        private static Dictionary<string, string> ParseKeyValueFile(string path)
-        {
-            Dictionary<string, string> values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            string[] lines = File.ReadAllLines(path);
-            for (int i = 0; i < lines.Length; i++)
-            {
-                string line = lines[i];
-                int equalsIndex = line.IndexOf('=');
-                if (equalsIndex <= 0)
-                {
-                    continue;
-                }
-
-                string key = line.Substring(0, equalsIndex).Trim();
-                string value = line.Substring(equalsIndex + 1).Trim();
-                values[key] = value;
-            }
-
-            return values;
         }
     }
 }

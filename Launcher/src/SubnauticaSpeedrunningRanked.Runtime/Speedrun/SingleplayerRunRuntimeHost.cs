@@ -59,6 +59,7 @@ namespace SubnauticaSpeedrunningRanked.Runtime.RunTracking
         private static float _nextCrafterScanAt;
         private static PrecursorDisableGunTerminal[] _cachedGunTerminals;
         private static float _nextGunTerminalRefreshAt;
+        private static int? _debugStageLimit;
 
         public static void Install(RuntimeContext context)
         {
@@ -108,23 +109,92 @@ namespace SubnauticaSpeedrunningRanked.Runtime.RunTracking
         private static void OnRuntimeUpdate()
         {
             TryAttachPersistentRuntimeBehaviour();
-            UpdateSaveContext();
-            RefreshActiveSeedForSaveContext();
-            UpdateDeathLoadingState();
-            UpdateGameplayState();
-            if (_state == RankedGameStateKind.MainMenu)
+            if (ShouldStopAfterDebugStage(1))
             {
-                RankedSeedRuntimeHost.EnsureAlwaysActiveHooksInstalled();
+                return;
             }
+
+            UpdateSaveContext();
+            if (ShouldStopAfterDebugStage(2))
+            {
+                return;
+            }
+
+            RefreshActiveSeedForSaveContext();
+            if (ShouldStopAfterDebugStage(3))
+            {
+                return;
+            }
+
+            UpdateDeathLoadingState();
+            if (ShouldStopAfterDebugStage(4))
+            {
+                return;
+            }
+
+            UpdateGameplayState();
+            if (ShouldStopAfterDebugStage(5))
+            {
+                return;
+            }
+
             RankedSeedRuntimeHost.UpdateSharedRuleState(_currentSaveSlot, _state == RankedGameStateKind.MainMenu, Utils.GetContinueMode());
+            if (ShouldStopAfterDebugStage(6))
+            {
+                return;
+            }
+
             ApplySeededSpawnIfNeeded();
+            if (ShouldStopAfterDebugStage(7))
+            {
+                return;
+            }
+
             bool seedWorldActive = _state != RankedGameStateKind.Booting && _state != RankedGameStateKind.MainMenu;
             RankedSeedWorldRuntime.Update(seedWorldActive, _state == RankedGameStateKind.InGame);
+            if (ShouldStopAfterDebugStage(8))
+            {
+                return;
+            }
+
             ConsistentScreenshotClip.Update(IsCreativeSingleplayerRunActive());
+            if (ShouldStopAfterDebugStage(9))
+            {
+                return;
+            }
+
             RankedSeedSurveyTool.Update();
+            if (ShouldStopAfterDebugStage(10))
+            {
+                return;
+            }
+
+            if (_state == RankedGameStateKind.Booting || _state == RankedGameStateKind.MainMenu)
+            {
+                ResetMenuOnlyPollingState();
+                RankedOverlayRuntime.SetTimer(FormatTimer(_elapsedSeconds), false);
+                RankedOverlayRuntime.SetRunStatus(GetRunStatusTitle(), GetRunStatusSubtitle(), SingleplayerRunTitleColor, false);
+                return;
+            }
+
             UpdateCraftingState();
+            if (ShouldStopAfterDebugStage(12))
+            {
+                return;
+            }
+
             UpdateTimerLifecycle();
+            if (ShouldStopAfterDebugStage(13))
+            {
+                return;
+            }
+
             UpdateRunProgress();
+            if (ShouldStopAfterDebugStage(14))
+            {
+                return;
+            }
+
             RankedOverlayRuntime.SetTimer(FormatTimer(_elapsedSeconds), ShouldShowTimerUi());
             RankedOverlayRuntime.SetRunStatus(GetRunStatusTitle(), GetRunStatusSubtitle(), SingleplayerRunTitleColor, ShouldShowRunStatus());
         }
@@ -1151,6 +1221,37 @@ namespace SubnauticaSpeedrunningRanked.Runtime.RunTracking
             return Player.main != null &&
                 Player.main.GetPDA() != null &&
                 Player.main.GetPDA().isInUse;
+        }
+
+        private static void ResetMenuOnlyPollingState()
+        {
+            _lastStartedCraftTechType = TechType.None;
+            _lastCraftedTechType = TechType.None;
+            _crafterInProgressTechTypes.Clear();
+            _nextCrafterScanAt = 0f;
+            _cachedGunTerminals = null;
+            _nextGunTerminalRefreshAt = 0f;
+            ConsistentScreenshotClip.Reset();
+        }
+
+        private static bool ShouldStopAfterDebugStage(int completedStage)
+        {
+            if (!_debugStageLimit.HasValue)
+            {
+                string configuredValue = Environment.GetEnvironmentVariable("RANKED_RUNTRACKING_MAX_STAGE");
+                int parsedValue;
+                if (int.TryParse(configuredValue, out parsedValue))
+                {
+                    _debugStageLimit = parsedValue;
+                    RankedLog.Warn("Run-tracking debug stage limiter active: stop after stage " + parsedValue + ".");
+                }
+                else
+                {
+                    _debugStageLimit = -1;
+                }
+            }
+
+            return _debugStageLimit.Value >= 0 && completedStage >= _debugStageLimit.Value;
         }
 
         private static void ResetTimerSession()
