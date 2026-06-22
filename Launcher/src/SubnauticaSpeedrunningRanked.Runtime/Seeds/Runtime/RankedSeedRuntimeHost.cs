@@ -1,6 +1,4 @@
 using System;
-using System.Reflection;
-using HarmonyLib;
 using UnityEngine;
 
 namespace SubnauticaSpeedrunningRanked.Runtime.Seeds
@@ -9,11 +7,9 @@ namespace SubnauticaSpeedrunningRanked.Runtime.Seeds
     {
         private static bool _installed;
         private static bool _hooksInstallAttempted;
-        private static Harmony _harmony;
-        private static bool _fishSchoolHooksInstalled;
         private static bool _stalkerToothHookInstalled;
         private static bool _lootDistributionHookInstalled;
-        private static bool _forceSecondGoldHookInstalled;
+        private static bool _startupHookDeferredLogged;
 
         public static void Install(RuntimeContext context)
         {
@@ -23,7 +19,7 @@ namespace SubnauticaSpeedrunningRanked.Runtime.Seeds
             }
 
             _installed = true;
-            RankedLog.Info("Ranked seed runtime armed. Always-active hooks will install once the main menu runtime is active, before any save begins loading. Deterministic survival seed multipliers and manual creature spawn rules will resolve from the active seed definition.");
+            RankedLog.Info("Ranked seed runtime armed. Shared runtime hooks will install at a safe in-game phase after the supported save has fully entered gameplay. Deterministic survival seed multipliers and manual creature spawn rules will resolve from the active seed definition.");
         }
 
         public static RankedSeedRuntimeProfile GetProfile()
@@ -104,6 +100,15 @@ namespace SubnauticaSpeedrunningRanked.Runtime.Seeds
             InstallAlwaysActiveHooks();
         }
 
+        public static void EnsureStartupHooksInstalled()
+        {
+            if (!_startupHookDeferredLogged)
+            {
+                _startupHookDeferredLogged = true;
+                RankedLog.Info("Startup Harmony seed hooks are disabled on this loader build because they are currently causing a native mono.dll crash. Seed features will use stable runtime paths instead.");
+            }
+        }
+
         public static void UpdateSharedRuleState(string saveSlot, bool inMainMenu, bool continueMode)
         {
             if (inMainMenu)
@@ -116,109 +121,67 @@ namespace SubnauticaSpeedrunningRanked.Runtime.Seeds
             RankedForceSecondGoldRuntime.UpdateSessionState(saveSlot, eligibleFreshRunState);
         }
 
-        private static void InstallAlwaysActiveHooks()
+        public static bool TryResolveSeededFreshRunStartPoint(out Vector3 startPoint, out string description)
         {
-            try
-            {
-                _harmony = new Harmony("subnauticaspeedrunningranked.runtime.shareddefaults");
-                _fishSchoolHooksInstalled = false;
-                _stalkerToothHookInstalled = false;
-                _lootDistributionHookInstalled = false;
-                _forceSecondGoldHookInstalled = RankedForceSecondGoldRuntime.Install(_harmony);
-                RankedLog.Info(
-                    "Installed always-active seed runtime at safe main-menu phase. Live-data systems remain primary, with targeted Harmony only where deterministic runtime correction is required. FishSchools=" +
-                    _fishSchoolHooksInstalled +
-                    ", StalkerTooth=" +
-                    _stalkerToothHookInstalled +
-                    ", LootDistribution=" +
-                    _lootDistributionHookInstalled +
-                    ", ForceSecondGold=" +
-                    _forceSecondGoldHookInstalled +
-                    ".");
-            }
-            catch (Exception ex)
-            {
-                RankedLog.Error("Failed to install always-active seed hooks: " + ex);
-            }
-        }
+            startPoint = Vector3.zero;
+            description = string.Empty;
 
-        private static bool InstallFishSchoolHooks(Harmony harmony)
-        {
-            bool installedAny = false;
-            MethodInfo blockSchoolPrefix = typeof(RankedSeedHarmonyPatches).GetMethod(
-                "BlockFishSchoolPrefix",
-                BindingFlags.Static | BindingFlags.NonPublic);
-            MethodInfo blockSchoolManagerAddPrefix = typeof(RankedSeedHarmonyPatches).GetMethod(
-                "BlockFishSchoolManagerAddPrefix",
-                BindingFlags.Static | BindingFlags.NonPublic);
-            MethodInfo blockSimpleSchoolPrefix = typeof(RankedSeedHarmonyPatches).GetMethod(
-                "BlockSimpleSchoolPrefix",
-                BindingFlags.Static | BindingFlags.NonPublic);
-            installedAny |= PatchPrefix(harmony, typeof(VFXSchoolFish), "OnEnable", 0, blockSchoolPrefix);
-            installedAny |= PatchPrefix(harmony, typeof(VFXSchoolFishManager), "AddSchool", 1, blockSchoolManagerAddPrefix);
-            installedAny |= PatchPrefix(harmony, typeof(School), "Start", 0, blockSimpleSchoolPrefix);
-            return installedAny;
-        }
-
-        private static bool InstallStalkerToothHook(Harmony harmony)
-        {
-            MethodInfo prefix = typeof(RankedSeedHarmonyPatches).GetMethod(
-                "CheckLoseToothPrefix",
-                BindingFlags.Static | BindingFlags.NonPublic);
-            return PatchPrefix(harmony, typeof(Stalker), "CheckLoseTooth", 1, prefix);
-        }
-
-        private static bool InstallLootDistributionHook(Harmony harmony)
-        {
-            MethodInfo prefix = typeof(RankedSeedHarmonyPatches).GetMethod(
-                "LootDistributionInitializePrefix",
-                BindingFlags.Static | BindingFlags.NonPublic);
-            return PatchPrefix(harmony, typeof(LootDistributionData), "Initialize", 1, prefix);
-        }
-
-        private static bool PatchPrefix(Harmony harmony, Type targetType, string methodName, int parameterCount, MethodInfo prefix)
-        {
-            if (harmony == null || targetType == null || prefix == null || string.IsNullOrEmpty(methodName))
+            if (Utils.GetContinueMode())
             {
                 return false;
             }
 
-            MethodInfo target = FindMethod(targetType, methodName, parameterCount);
-            if (target == null)
+            GameMode mode = Utils.GetLegacyGameMode();
+            if (mode != GameMode.Creative && mode != GameMode.Survival)
             {
-                RankedLog.Warn("Unable to find hook target '" + targetType.FullName + "." + methodName + "'.");
                 return false;
             }
 
-            harmony.Patch(target, prefix: new HarmonyMethod(prefix));
-            RankedLog.Info("Installed seed hook: " + targetType.Name + "." + methodName);
+            string saveSlot = Utils.GetSavegameDir() ?? string.Empty;
+            if (string.IsNullOrEmpty(saveSlot))
+            {
+                return false;
+            }
+
+            RankedSeedStore.EnsureSeedForSaveContext(saveSlot, mode, continueMode: false);
+            if (!RankedSeedStore.IsSeedContextActive(saveSlot, mode))
+            {
+                return false;
+            }
+
+            float x;
+            float z;
+            bool resolved;
+            if (mode == GameMode.Creative)
+            {
+                resolved = RankedSeedStore.TryGetCreativeSpawnCoordinates(out x, out z, out description);
+            }
+            else
+            {
+                resolved = RankedSeedStore.TryGetSurvivalSpawnCoordinates(out x, out z, out description);
+            }
+
+            if (!resolved)
+            {
+                return false;
+            }
+
+            startPoint = new Vector3(x, 0f, z);
             return true;
         }
 
-        private static MethodInfo FindMethod(Type type, string methodName, int parameterCount)
+        private static void InstallAlwaysActiveHooks()
         {
-            while (type != null)
-            {
-                MethodInfo[] methods = type.GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly);
-                for (int i = 0; i < methods.Length; i++)
-                {
-                    MethodInfo method = methods[i];
-                    if (!string.Equals(method.Name, methodName, StringComparison.Ordinal))
-                    {
-                        continue;
-                    }
-
-                    ParameterInfo[] parameters = method.GetParameters();
-                    if (parameters != null && parameters.Length == parameterCount)
-                    {
-                        return method;
-                    }
-                }
-
-                type = type.BaseType;
-            }
-
-            return null;
+            _stalkerToothHookInstalled = false;
+            _lootDistributionHookInstalled = false;
+            RankedLog.Info(
+                "Skipped always-active Harmony installation after identifying a Mono native crash during post-load hook setup. " +
+                "FishSchools=False, StalkerTooth=" +
+                _stalkerToothHookInstalled +
+                ", LootDistribution=" +
+                _lootDistributionHookInstalled +
+                ", ForceSecondGold=False" +
+                ".");
         }
     }
 }

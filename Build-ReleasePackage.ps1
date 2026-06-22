@@ -1,6 +1,6 @@
 param(
     [string] $ReleaseVersion = "",
-    [string] $TransportRoot = "C:\Program Files (x86)\Steam\steamapps\common\Subnautica",
+    [string] $TransportRoot = "",
     [switch] $BuildFirst,
     [switch] $IncludeDebugSymbols
 )
@@ -75,7 +75,7 @@ $installNotes = @"
 Subnautica Speedrunning Ranked Release
 =====================================
 
-1. Copy everything in this folder into your Subnautica2018 game folder.
+1. Copy everything in this folder into the same folder as `Subnautica.exe`.
 2. Make sure Subnautica is fully closed first.
 3. Launch with:
    - SubnauticaSpeedrunningRanked\Launch Ranked.exe
@@ -85,8 +85,8 @@ Update flow:
 - Replace existing ranked files with the new release contents.
 - Keep the folder structure exactly the same.
 
-Expected game root example:
-C:\Program Files (x86)\Steam\steamapps\common\Subnautica2018
+Example game root:
+C:\Program Files (x86)\Steam\steamapps\common\Subnautica
 "@
 
 Set-Content -Path (Join-Path $packageRoot "INSTALL.txt") -Value $installNotes -Encoding UTF8

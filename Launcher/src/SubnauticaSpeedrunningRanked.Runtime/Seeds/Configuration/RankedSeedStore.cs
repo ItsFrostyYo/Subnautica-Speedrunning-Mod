@@ -12,13 +12,18 @@ namespace SubnauticaSpeedrunningRanked.Runtime.Seeds
         private const string AssignedSlotsDirectoryName = "AssignedSlots";
         private const string ActiveSeedFileName = "active-seed.xml";
         private const string SurvivalTemplateFileName = "survival-seed-template.xml";
+        private const string PendingSharedSeedFileName = "pending-shared-seed.xml";
+        private const string LastConsumedSharedSeedFileName = "last-consumed-shared-seed.xml";
 
         private static readonly object Sync = new object();
         private static readonly XmlSerializer SeedSerializer = new XmlSerializer(typeof(RankedSeedDefinition));
+        private static readonly XmlSerializer SharedSeedSerializer = new XmlSerializer(typeof(RankedPendingSharedSeedDefinition));
         private static bool _initialized;
         private static string _seedsDirectoryPath = string.Empty;
         private static string _assignedSlotsDirectoryPath = string.Empty;
         private static string _activeSeedPath = string.Empty;
+        private static string _pendingSharedSeedPath = string.Empty;
+        private static string _lastConsumedSharedSeedPath = string.Empty;
         private static RankedSeedDefinition _activeSeed;
         private static RankedSeedRuntimeProfile _activeProfile;
         private static RankedSeedRollContext _rollContext;
@@ -50,6 +55,8 @@ namespace SubnauticaSpeedrunningRanked.Runtime.Seeds
                 string activeSeedPath = Path.Combine(_seedsDirectoryPath, ActiveSeedFileName);
                 _activeSeedPath = activeSeedPath;
                 string survivalTemplatePath = Path.Combine(_seedsDirectoryPath, SurvivalTemplateFileName);
+                _pendingSharedSeedPath = Path.Combine(_seedsDirectoryPath, PendingSharedSeedFileName);
+                _lastConsumedSharedSeedPath = Path.Combine(_seedsDirectoryPath, LastConsumedSharedSeedFileName);
 
                 EnsureDefaultSeedFile(activeSeedPath, RankedSeedDefinition.CreateDefaultActiveSeed());
                 EnsureDefaultSeedFile(survivalTemplatePath, CreateSurvivalTemplateSeed());
@@ -104,7 +111,15 @@ namespace SubnauticaSpeedrunningRanked.Runtime.Seeds
                     return false;
                 }
 
-                if (string.Equals(_activeAssignedSlot, saveSlot, StringComparison.OrdinalIgnoreCase) && _activeAssignedMode == mode)
+                if (string.Equals(_activeAssignedSlot, saveSlot, StringComparison.OrdinalIgnoreCase) &&
+                    _activeAssignedMode == mode)
+                {
+                    return false;
+                }
+
+                if (continueMode &&
+                    string.Equals(_activeAssignedSlot, saveSlot, StringComparison.OrdinalIgnoreCase) &&
+                    _activeAssignedMode == mode)
                 {
                     return false;
                 }
@@ -114,7 +129,29 @@ namespace SubnauticaSpeedrunningRanked.Runtime.Seeds
                 bool createdSlotSeed = false;
 
                 RankedSeedDefinition slotSeed;
-                if (File.Exists(slotSeedPath))
+                bool consumedSharedSeed = false;
+                if (!continueMode && TryConsumePendingSharedSeed(mode, saveSlot, out slotSeed))
+                {
+                    SaveSeedFile(slotSeedPath, slotSeed);
+                    createdSlotSeed = true;
+                    consumedSharedSeed = true;
+                }
+                else if (!continueMode && File.Exists(slotSeedPath))
+                {
+                    slotSeed = LoadSeedFile(slotSeedPath, CreateSeedForSlot(saveSlot, mode, continueMode: false));
+                }
+                else if (!continueMode && File.Exists(legacySlotSeedPath))
+                {
+                    slotSeed = LoadSeedFile(legacySlotSeedPath, CreateSeedForSlot(saveSlot, mode, continueMode: false));
+                    SaveSeedFile(slotSeedPath, slotSeed);
+                }
+                else if (!continueMode)
+                {
+                    slotSeed = CreateSeedForSlot(saveSlot, mode, continueMode: false);
+                    SaveSeedFile(slotSeedPath, slotSeed);
+                    createdSlotSeed = true;
+                }
+                else if (File.Exists(slotSeedPath))
                 {
                     slotSeed = LoadSeedFile(slotSeedPath, CreateSeedForSlot(saveSlot, mode, continueMode));
                 }
@@ -145,7 +182,7 @@ namespace SubnauticaSpeedrunningRanked.Runtime.Seeds
                 if (createdSlotSeed)
                 {
                     RankedLog.Info(
-                        "Assigned new " +
+                        (consumedSharedSeed ? "Assigned shared " : "Assigned new ") +
                         mode +
                         " slot seed '" +
                         _activeSeed.SeedId +
@@ -177,10 +214,36 @@ namespace SubnauticaSpeedrunningRanked.Runtime.Seeds
         {
             lock (Sync)
             {
+                _activeAssignedSlot = string.Empty;
+                _activeAssignedMode = GameMode.None;
                 _creativeSpawnResolved = false;
                 _creativeSpawnLabel = string.Empty;
                 _survivalSpawnResolved = false;
                 _survivalSpawnLabel = string.Empty;
+            }
+        }
+
+        public static bool QueueSharedSeed(GameMode mode, string seedId, string seedValue, string description)
+        {
+            lock (Sync)
+            {
+                if (!_initialized || !IsSupportedSeedMode(mode) || string.IsNullOrEmpty(seedValue))
+                {
+                    return false;
+                }
+
+                RankedPendingSharedSeedDefinition assignment = new RankedPendingSharedSeedDefinition
+                {
+                    SeedId = string.IsNullOrEmpty(seedId) ? GetSeedIdForMode(mode) : seedId,
+                    SeedValue = seedValue,
+                    GameMode = mode.ToString(),
+                    Description = string.IsNullOrEmpty(description) ? "Queued shared seed." : description
+                };
+
+                assignment.Normalize();
+                SaveSharedSeedFile(_pendingSharedSeedPath, assignment);
+                RankedLog.Info("Queued pending shared seed '" + assignment.SeedId + "' / '" + assignment.SeedValue + "' for mode '" + assignment.GameMode + "'.");
+                return true;
             }
         }
 
@@ -262,6 +325,20 @@ namespace SubnauticaSpeedrunningRanked.Runtime.Seeds
             }
         }
 
+        public static bool IsSeedContextActive(string saveSlot, GameMode mode)
+        {
+            lock (Sync)
+            {
+                if (!_initialized || string.IsNullOrEmpty(saveSlot))
+                {
+                    return false;
+                }
+
+                return string.Equals(_activeAssignedSlot, saveSlot, StringComparison.OrdinalIgnoreCase) &&
+                       _activeAssignedMode == mode;
+            }
+        }
+
         public static string GetActiveSeedId()
         {
             return _activeSeed == null || string.IsNullOrEmpty(_activeSeed.SeedId)
@@ -282,6 +359,20 @@ namespace SubnauticaSpeedrunningRanked.Runtime.Seeds
             seedDefinition.SeedId = GetSeedIdForMode(mode);
             seedDefinition.SeedValue = BuildSeedValue(saveSlot, mode, continueMode);
             seedDefinition.Description = (continueMode ? "Migrated" : "Generated") + " " + mode + " seed for save slot '" + saveSlot + "'.";
+            seedDefinition.Creative = RankedCreativeSeedDefinition.CreateDefault();
+            seedDefinition.Survival = RankedSurvivalSeedDefinition.CreateTemplate();
+            seedDefinition.Normalize();
+            return seedDefinition;
+        }
+
+        private static RankedSeedDefinition CreateSharedSeedForSlot(string saveSlot, GameMode mode, RankedPendingSharedSeedDefinition assignment)
+        {
+            RankedSeedDefinition seedDefinition = RankedSeedDefinition.CreateDefaultActiveSeed();
+            seedDefinition.SeedId = string.IsNullOrEmpty(assignment.SeedId) ? GetSeedIdForMode(mode) : assignment.SeedId;
+            seedDefinition.SeedValue = assignment.SeedValue;
+            seedDefinition.Description = string.IsNullOrEmpty(assignment.Description)
+                ? "Shared " + mode + " seed for save slot '" + saveSlot + "'."
+                : assignment.Description + " [slot '" + saveSlot + "']";
             seedDefinition.Creative = RankedCreativeSeedDefinition.CreateDefault();
             seedDefinition.Survival = RankedSurvivalSeedDefinition.CreateTemplate();
             seedDefinition.Normalize();
@@ -423,6 +514,94 @@ namespace SubnauticaSpeedrunningRanked.Runtime.Seeds
             {
                 RankedLog.Error("Failed to write default seed file at '" + path + "'.", ex);
             }
+        }
+
+        private static RankedPendingSharedSeedDefinition LoadSharedSeedFile(string path)
+        {
+            try
+            {
+                using (FileStream stream = File.OpenRead(path))
+                {
+                    RankedPendingSharedSeedDefinition value = SharedSeedSerializer.Deserialize(stream) as RankedPendingSharedSeedDefinition;
+                    if (value != null)
+                    {
+                        value.Normalize();
+                    }
+
+                    return value;
+                }
+            }
+            catch (Exception ex)
+            {
+                RankedLog.Error("Failed to load pending shared seed file at '" + path + "'.", ex);
+                return null;
+            }
+        }
+
+        private static void SaveSharedSeedFile(string path, RankedPendingSharedSeedDefinition definition)
+        {
+            try
+            {
+                if (definition != null)
+                {
+                    definition.Normalize();
+                }
+
+                using (FileStream stream = File.Create(path))
+                {
+                    SharedSeedSerializer.Serialize(stream, definition);
+                }
+            }
+            catch (Exception ex)
+            {
+                RankedLog.Error("Failed to write shared seed file at '" + path + "'.", ex);
+            }
+        }
+
+        private static bool TryConsumePendingSharedSeed(GameMode mode, string saveSlot, out RankedSeedDefinition slotSeed)
+        {
+            slotSeed = null;
+            if (string.IsNullOrEmpty(_pendingSharedSeedPath) || !File.Exists(_pendingSharedSeedPath))
+            {
+                return false;
+            }
+
+            RankedPendingSharedSeedDefinition assignment = LoadSharedSeedFile(_pendingSharedSeedPath);
+            if (assignment == null)
+            {
+                return false;
+            }
+
+            GameMode assignmentMode;
+            try
+            {
+                assignmentMode = (GameMode)Enum.Parse(typeof(GameMode), assignment.GameMode, true);
+            }
+            catch
+            {
+                assignmentMode = GameMode.None;
+            }
+
+            if (assignmentMode != mode)
+            {
+                RankedLog.Warn("Pending shared seed mode '" + assignment.GameMode + "' did not match requested mode '" + mode + "'.");
+                return false;
+            }
+
+            slotSeed = CreateSharedSeedForSlot(saveSlot, mode, assignment);
+            SaveSharedSeedFile(_lastConsumedSharedSeedPath, assignment);
+
+            try
+            {
+                File.Delete(_pendingSharedSeedPath);
+            }
+            catch (Exception ex)
+            {
+                RankedLog.Warn("Unable to clear pending shared seed file after consuming it: " + ex.Message);
+            }
+
+            RankedLog.Info("Consumed pending shared seed '" + assignment.SeedId + "' / '" + assignment.SeedValue + "' for save slot '" + saveSlot + "'.");
+            return true;
         }
 
         private static void ResolveCreativeSpawn(RankedCreativeSeedDefinition creative)
@@ -656,6 +835,46 @@ namespace SubnauticaSpeedrunningRanked.Runtime.Seeds
             }
             else if (previousTemplateVersion < RankedSurvivalSeedDefinition.CurrentTemplateVersion)
             {
+                if (RankedSeedReferenceCatalog.SyncCurrentFragmentEntries(seedDefinition.Survival.Fragments))
+                {
+                    changed = true;
+                }
+
+                if (RankedSeedReferenceCatalog.SyncCurrentResourceEntries(seedDefinition.Survival.Resources))
+                {
+                    changed = true;
+                }
+
+                if (RankedSeedReferenceCatalog.SyncCurrentCreatureEntries(seedDefinition.Survival.Creatures))
+                {
+                    changed = true;
+                }
+
+                if (RankedSeedReferenceCatalog.SyncCurrentBiomeEntries(seedDefinition.Survival.Biomes))
+                {
+                    changed = true;
+                }
+
+                if (RankedSeedReferenceCatalog.SyncCurrentAlwaysEntries(seedDefinition.Survival.Always))
+                {
+                    changed = true;
+                }
+
+                if (RankedSeedReferenceCatalog.SyncCurrentAlwaysBiomeEntries(seedDefinition.Survival.AlwaysBiomeMultipliers))
+                {
+                    changed = true;
+                }
+
+                if (RankedSeedReferenceCatalog.SyncCurrentAlwaysBiomeTechEntries(seedDefinition.Survival.AlwaysBiomeTechMultipliers))
+                {
+                    changed = true;
+                }
+
+                if (RankedSeedReferenceCatalog.SyncCurrentManualCreatureSpawnEntries(seedDefinition.Survival.ManualCreatureSpawns))
+                {
+                    changed = true;
+                }
+
                 if (ApplyCurrentSharedDefaults(seedDefinition.Survival.Defaults))
                 {
                     changed = true;

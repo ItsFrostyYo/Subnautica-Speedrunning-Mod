@@ -208,7 +208,7 @@ namespace SubnauticaSpeedrunningRanked.Runtime.Seeds
     [Serializable]
     public sealed class RankedSurvivalSeedDefinition
     {
-        public const int CurrentTemplateVersion = 3;
+        public const int CurrentTemplateVersion = 4;
 
         [XmlElement("TemplateVersion")]
         public int TemplateVersion { get; set; }
