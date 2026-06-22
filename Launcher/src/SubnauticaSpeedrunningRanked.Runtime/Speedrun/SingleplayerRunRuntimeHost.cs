@@ -12,6 +12,7 @@ namespace SubnauticaSpeedrunningRanked.Runtime.RunTracking
     {
         private static readonly Color SingleplayerRunTitleColor = new Color(1f, 0.76f, 0.36f, 1f);
         private static readonly ConsistentScreenshotClipRuntime ConsistentScreenshotClip = new ConsistentScreenshotClipRuntime();
+        private static readonly RankedSeedLifepodPlacementRuntime SeededLifepodPlacement = new RankedSeedLifepodPlacementRuntime();
         private static readonly FieldInfo PlayerInfectionCuredField = typeof(Player).GetField("timePlayerInfectionCured", BindingFlags.Instance | BindingFlags.NonPublic);
         private static readonly FieldInfo PrecursorDisableGunTerminalUsingPlayerField = typeof(PrecursorDisableGunTerminal).GetField("usingPlayer", BindingFlags.Instance | BindingFlags.NonPublic);
         private static readonly float[] PortalBounds = { 240f, 250f, -1590f, -1580f, -2000f, 2000f };
@@ -41,9 +42,8 @@ namespace SubnauticaSpeedrunningRanked.Runtime.RunTracking
         private static double _elapsedSeconds;
         private static RankedGameplaySnapshot _lastSnapshot;
         private static bool _haveLoggedSnapshot;
-        private static bool _seededSpawnApplied;
-        private static bool _seededSpawnPlacementStarted;
-        private static int _seededSpawnStableTicks;
+        private static string _lastActivatedSeedSaveSlot = string.Empty;
+        private static GameMode _lastActivatedSeedMode = GameMode.None;
         private static float _lastCureStartTime;
         private static string _currentSaveSlot = string.Empty;
         private static string _currentGameModeName = string.Empty;
@@ -120,51 +120,62 @@ namespace SubnauticaSpeedrunningRanked.Runtime.RunTracking
                 return;
             }
 
-            RefreshActiveSeedForSaveContext();
+            RankedSeedRuntimeHost.EnsureStartupHooksInstalled();
             if (ShouldStopAfterDebugStage(3))
             {
                 return;
             }
 
-            UpdateDeathLoadingState();
+            RefreshActiveSeedForSaveContext();
             if (ShouldStopAfterDebugStage(4))
             {
                 return;
             }
 
-            UpdateGameplayState();
+            UpdateDeathLoadingState();
             if (ShouldStopAfterDebugStage(5))
             {
                 return;
             }
 
-            RankedSeedRuntimeHost.UpdateSharedRuleState(_currentSaveSlot, _state == RankedGameStateKind.MainMenu, Utils.GetContinueMode());
+            UpdateGameplayState();
             if (ShouldStopAfterDebugStage(6))
             {
                 return;
             }
 
-            ApplySeededSpawnIfNeeded();
+            RankedSeedRuntimeHost.UpdateSharedRuleState(_currentSaveSlot, _state == RankedGameStateKind.MainMenu, Utils.GetContinueMode());
             if (ShouldStopAfterDebugStage(7))
+            {
+                return;
+            }
+
+            RankedForceSecondGoldRuntime.Update();
+            SeededLifepodPlacement.Update(ShouldApplySeededLifepodPlacement());
+            if (ShouldStopAfterDebugStage(8))
             {
                 return;
             }
 
             bool seedWorldActive = _state != RankedGameStateKind.Booting && _state != RankedGameStateKind.MainMenu;
             RankedSeedWorldRuntime.Update(seedWorldActive, _state == RankedGameStateKind.InGame);
-            if (ShouldStopAfterDebugStage(8))
+            if (ShouldStopAfterDebugStage(9))
+            {
+                return;
+            }
+            if (ShouldStopAfterDebugStage(10))
             {
                 return;
             }
 
             ConsistentScreenshotClip.Update(IsCreativeSingleplayerRunActive());
-            if (ShouldStopAfterDebugStage(9))
+            if (ShouldStopAfterDebugStage(11))
             {
                 return;
             }
 
             RankedSeedSurveyTool.Update();
-            if (ShouldStopAfterDebugStage(10))
+            if (ShouldStopAfterDebugStage(12))
             {
                 return;
             }
@@ -178,19 +189,19 @@ namespace SubnauticaSpeedrunningRanked.Runtime.RunTracking
             }
 
             UpdateCraftingState();
-            if (ShouldStopAfterDebugStage(12))
-            {
-                return;
-            }
-
-            UpdateTimerLifecycle();
             if (ShouldStopAfterDebugStage(13))
             {
                 return;
             }
 
-            UpdateRunProgress();
+            UpdateTimerLifecycle();
             if (ShouldStopAfterDebugStage(14))
+            {
+                return;
+            }
+
+            UpdateRunProgress();
+            if (ShouldStopAfterDebugStage(15))
             {
                 return;
             }
@@ -222,16 +233,35 @@ namespace SubnauticaSpeedrunningRanked.Runtime.RunTracking
             }
 
             GameMode mode = Utils.GetLegacyGameMode();
-            if (!RankedSeedStore.EnsureSeedForSaveContext(saveSlot, mode, Utils.GetContinueMode()))
+            bool seedEnsured = RankedSeedStore.EnsureSeedForSaveContext(saveSlot, mode, Utils.GetContinueMode());
+            if (!seedEnsured && !RankedSeedStore.IsSeedContextActive(saveSlot, mode))
             {
                 return;
             }
 
-            _seededSpawnApplied = false;
-            _seededSpawnPlacementStarted = false;
-            _seededSpawnStableTicks = 0;
+            bool seedContextChanged =
+                !string.Equals(_lastActivatedSeedSaveSlot, saveSlot, StringComparison.OrdinalIgnoreCase) ||
+                _lastActivatedSeedMode != mode;
+            if (!seedContextChanged)
+            {
+                return;
+            }
+
+            _lastActivatedSeedSaveSlot = saveSlot;
+            _lastActivatedSeedMode = mode;
             RankedSeedWorldRuntime.Reset();
+            SeededLifepodPlacement.Reset();
             RankedLog.Info("Activated slot-backed seed context for save slot '" + saveSlot + "' in mode '" + mode + "'.");
+
+            if (!Utils.GetContinueMode())
+            {
+                Vector3 seededStartPoint;
+                string description;
+                if (RankedSeedRuntimeHost.TryResolveSeededFreshRunStartPoint(out seededStartPoint, out description))
+                {
+                    SeededLifepodPlacement.Schedule(seededStartPoint.x, seededStartPoint.z, description);
+                }
+            }
         }
 
         private static void UpdateGameplayState()
@@ -250,6 +280,17 @@ namespace SubnauticaSpeedrunningRanked.Runtime.RunTracking
                 _lastSnapshot = snapshot;
                 _haveLoggedSnapshot = true;
             }
+        }
+
+        private static bool ShouldApplySeededLifepodPlacement()
+        {
+            if (Utils.GetContinueMode())
+            {
+                return false;
+            }
+
+            return _state == RankedGameStateKind.LoadingNewGame ||
+                   _state == RankedGameStateKind.InGame;
         }
 
         private static void UpdateDeathLoadingState()
@@ -761,113 +802,6 @@ namespace SubnauticaSpeedrunningRanked.Runtime.RunTracking
             return false;
         }
 
-        private static void ApplySeededSpawnIfNeeded()
-        {
-            if (_seededSpawnApplied || !ShouldApplySeededSpawn())
-            {
-                return;
-            }
-
-            EscapePod escapePod = Player.main != null ? Player.main.currentEscapePod : null;
-            if (escapePod == null)
-            {
-                return;
-            }
-
-            float targetX;
-            float targetZ;
-            string spawnDescription;
-            bool resolved = false;
-            GameMode mode = Utils.GetLegacyGameMode();
-            if (mode == GameMode.Creative)
-            {
-                resolved = RankedSeedStore.TryGetCreativeSpawnCoordinates(out targetX, out targetZ, out spawnDescription);
-            }
-            else if (mode == GameMode.Survival)
-            {
-                resolved = RankedSeedStore.TryGetSurvivalSpawnCoordinates(out targetX, out targetZ, out spawnDescription);
-            }
-            else
-            {
-                targetX = 0f;
-                targetZ = 0f;
-                spawnDescription = string.Empty;
-            }
-
-            if (!resolved)
-            {
-                return;
-            }
-
-            Vector3 currentPosition = escapePod.transform.position;
-            if (Mathf.Abs(currentPosition.x - targetX) <= 0.5f && Mathf.Abs(currentPosition.z - targetZ) <= 0.5f)
-            {
-                _seededSpawnStableTicks++;
-                if (_seededSpawnStableTicks >= 8)
-                {
-                    _seededSpawnApplied = true;
-                    RankedLog.Info("Confirmed seeded lifepod spawn: " + spawnDescription + ".");
-                }
-
-                return;
-            }
-
-            _seededSpawnStableTicks = 0;
-            Vector3 targetPosition = new Vector3(targetX, currentPosition.y, targetZ);
-            escapePod.StartAtPosition(targetPosition);
-
-            Rigidbody escapePodBody = escapePod.GetComponent<Rigidbody>();
-            if (escapePodBody != null)
-            {
-                escapePodBody.velocity = Vector3.zero;
-                escapePodBody.angularVelocity = Vector3.zero;
-            }
-
-            Rigidbody playerBody = Player.main != null ? Player.main.GetComponent<Rigidbody>() : null;
-            if (playerBody != null)
-            {
-                playerBody.velocity = Vector3.zero;
-                playerBody.angularVelocity = Vector3.zero;
-            }
-
-            if (!_seededSpawnPlacementStarted)
-            {
-                _seededSpawnPlacementStarted = true;
-                RankedLog.Info("Applying seeded lifepod spawn: " + spawnDescription + ".");
-            }
-        }
-
-        private static bool ShouldApplySeededSpawn()
-        {
-            if (Player.main == null)
-            {
-                return false;
-            }
-
-            if (Utils.GetContinueMode())
-            {
-                return false;
-            }
-
-            GameMode mode = Utils.GetLegacyGameMode();
-            if (mode != GameMode.Creative && mode != GameMode.Survival)
-            {
-                return false;
-            }
-
-            if (_state != RankedGameStateKind.InGame)
-            {
-                return false;
-            }
-
-            if (IntroVignette.isIntroActive || Player.main.cinematicModeActive)
-            {
-                return false;
-            }
-
-            return Player.main.currentEscapePod != null;
-        }
-
         private static void UpdateCraftingState()
         {
             if (Time.unscaledTime < _nextCrafterScanAt)
@@ -1266,9 +1200,8 @@ namespace SubnauticaSpeedrunningRanked.Runtime.RunTracking
             _timerCompleted = false;
             _lastLaunchStarted = false;
             _elapsedSeconds = 0d;
-            _seededSpawnApplied = false;
-            _seededSpawnPlacementStarted = false;
-            _seededSpawnStableTicks = 0;
+            _lastActivatedSeedSaveSlot = string.Empty;
+            _lastActivatedSeedMode = GameMode.None;
             _lastCureStartTime = 0f;
             _currentSaveSlot = string.Empty;
             _currentGameModeName = string.Empty;
@@ -1286,6 +1219,7 @@ namespace SubnauticaSpeedrunningRanked.Runtime.RunTracking
             _nextGunTerminalRefreshAt = 0f;
             RankedSeedStore.ResetSessionSelections();
             RankedSeedWorldRuntime.Reset();
+            SeededLifepodPlacement.Reset();
             ConsistentScreenshotClip.Reset();
         }
 

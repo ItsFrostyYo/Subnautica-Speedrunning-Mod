@@ -1,106 +1,32 @@
 using System;
-using System.Collections;
-using System.Globalization;
-using System.IO;
-using System.Reflection;
-using HarmonyLib;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace SubnauticaSpeedrunningRanked.Runtime.Seeds
 {
     internal static class RankedForceSecondGoldRuntime
     {
-        private struct SandstoneProfile
-        {
-            public GameObject GoldPrefab;
-            public float SilverChance;
-        }
-
         private const int SandstoneWindowSize = 6;
         private const int RequiredGolds = 2;
-        private const float DefaultSilverChance = 0.5f;
+        private const float PendingBreakResolveDelaySeconds = 0.15f;
+        private const float PendingBreakResolveTimeoutSeconds = 3f;
+        private const float PendingBreakPickupRadius = 4f;
+        private const float ArmedBreakWindowSeconds = 1f;
 
-        private static readonly BindingFlags StaticFlags = BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
-        private static readonly BindingFlags InstanceFlags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+        private static readonly List<PendingSandstoneBreak> PendingBreaks = new List<PendingSandstoneBreak>();
+        private static readonly HashSet<int> ProcessedPickupIds = new HashSet<int>();
 
-        private static readonly Type BreakableResourceType = ResolveType("BreakableResource, Assembly-CSharp");
-        private static readonly Type PlayerType = ResolveType("Player, Assembly-CSharp");
-        private static readonly Type PlayerEntropyType = ResolveType("PlayerEntropy, Assembly-CSharp");
-        private static readonly MethodInfo ChooseRandomResourceMethod = BreakableResourceType == null
-            ? null
-            : BreakableResourceType.GetMethod("ChooseRandomResource", InstanceFlags, null, Type.EmptyTypes, null);
-        private static readonly FieldInfo DefaultPrefabField = FindField(BreakableResourceType, "defaultPrefab");
-        private static readonly FieldInfo PrefabListField = FindField(BreakableResourceType, "prefabList");
-        private static readonly FieldInfo RandomPrefabPrefabField = FindField(ResolveType("BreakableResource+RandomPrefab, Assembly-CSharp"), "prefab");
-        private static readonly FieldInfo RandomPrefabChanceField = FindField(ResolveType("BreakableResource+RandomPrefab, Assembly-CSharp"), "chance");
-        private static readonly MethodInfo CraftDataGetTechTypeMethod = FindCraftDataGetTechTypeMethod(ResolveType("CraftData, Assembly-CSharp"));
-        private static readonly MethodInfo GameObjectGetComponentByTypeMethod = typeof(GameObject).GetMethod("GetComponent", new[] { typeof(Type) });
-        private static readonly FieldInfo PlayerMainField = FindField(PlayerType, "main");
-        private static readonly PropertyInfo PlayerMainProperty = FindProperty(PlayerType, "main");
-        private static readonly FieldInfo PlayerEntropyRandomizersField = FindField(PlayerEntropyType, "randomizers");
-        private static readonly FieldInfo TechEntropyTechTypeField = FindField(ResolveType("PlayerEntropy+TechEntropy, Assembly-CSharp"), "techType");
-        private static readonly FieldInfo TechEntropyEntropyField = FindField(ResolveType("PlayerEntropy+TechEntropy, Assembly-CSharp"), "entropy");
-        private static readonly FieldInfo FairRandomizerEntropyField = FindField(ResolveType("FairRandomizer, Assembly-CSharp"), "entropy");
-
-        private static bool _initialized;
-        private static bool _available = true;
-        private static bool _installed;
         private static string _activeSlotPath = string.Empty;
         private static bool _activeSlotEligible;
         private static int _sandstoneBrokenThisRun;
         private static int _goldSeenThisRun;
+        private static int _nextObservationId = 1;
+        private static float _nextTargetSweepAt;
+        private static float _nextPendingBreakSweepAt;
 
-        public static bool Install(Harmony harmony)
+        public static bool EnsureInstalled()
         {
-            if (_initialized)
-            {
-                return _available && _installed;
-            }
-
-            _initialized = true;
-            if (harmony == null)
-            {
-                _available = false;
-                return false;
-            }
-
-            if (ChooseRandomResourceMethod == null ||
-                DefaultPrefabField == null ||
-                PrefabListField == null ||
-                RandomPrefabPrefabField == null ||
-                RandomPrefabChanceField == null ||
-                CraftDataGetTechTypeMethod == null ||
-                GameObjectGetComponentByTypeMethod == null ||
-                PlayerEntropyRandomizersField == null ||
-                TechEntropyTechTypeField == null ||
-                TechEntropyEntropyField == null ||
-                FairRandomizerEntropyField == null)
-            {
-                _available = false;
-                RankedLog.Warn("Force 2nd Gold patch unavailable; required sandstone reflection hooks were not found.");
-                return false;
-            }
-
-            try
-            {
-                MethodInfo postfix = typeof(RankedForceSecondGoldRuntime).GetMethod("ChooseRandomResourcePostfix", StaticFlags);
-                if (postfix == null)
-                {
-                    _available = false;
-                    return false;
-                }
-
-                harmony.Patch(ChooseRandomResourceMethod, postfix: new HarmonyMethod(postfix));
-                _installed = true;
-                RankedLog.Info("Installed sandstone Force 2nd Gold patch.");
-                return true;
-            }
-            catch (Exception ex)
-            {
-                _available = false;
-                RankedLog.Warn("Failed to install Force 2nd Gold patch: " + ex.Message);
-                return false;
-            }
+            return false;
         }
 
         public static void UpdateSessionState(string saveSlot, bool isEligible)
@@ -120,9 +46,36 @@ namespace SubnauticaSpeedrunningRanked.Runtime.Seeds
             if (!_activeSlotEligible && isEligible)
             {
                 ResetCounters(normalizedSlotPath);
+                RankedLog.Info("Force 2nd Gold armed for fresh run slot '" + normalizedSlotPath + "'.");
             }
 
             _activeSlotEligible = isEligible;
+        }
+
+        public static void Update()
+        {
+            if (!ShouldApplyRuntime())
+            {
+                RestoreForcedSandstones(null);
+                return;
+            }
+
+            if (Time.unscaledTime >= _nextTargetSweepAt)
+            {
+                _nextTargetSweepAt = Time.unscaledTime + 0.05f;
+                UpdateTargetedSandstone();
+            }
+
+            if (Time.unscaledTime >= _nextPendingBreakSweepAt)
+            {
+                _nextPendingBreakSweepAt = Time.unscaledTime + 0.05f;
+                ResolvePendingBreaks();
+            }
+
+            if (_sandstoneBrokenThisRun >= SandstoneWindowSize || _goldSeenThisRun >= RequiredGolds)
+            {
+                RestoreForcedSandstones(null);
+            }
         }
 
         public static void Reset()
@@ -130,233 +83,265 @@ namespace SubnauticaSpeedrunningRanked.Runtime.Seeds
             ResetRunState(string.Empty);
         }
 
-        private static void ChooseRandomResourcePostfix(object __instance, ref GameObject __result)
+        private static void UpdateTargetedSandstone()
         {
-            try
+            GUIHand hand = Player.main != null ? Player.main.GetComponent<GUIHand>() : null;
+            GameObject activeTarget = hand != null ? hand.GetActiveTarget() : null;
+            BreakableResource sandstone = FindSandstoneBreakable(activeTarget);
+            if (sandstone == null)
             {
-                if (!ShouldApply() || __instance == null)
+                if (!ShouldForceNextSandstoneToGold())
                 {
-                    return;
+                    RestoreForcedSandstones(null);
                 }
 
-                if (_sandstoneBrokenThisRun >= SandstoneWindowSize || _goldSeenThisRun >= RequiredGolds)
-                {
-                    return;
-                }
-
-                SandstoneProfile profile;
-                if (!TryGetSandstoneProfile(__instance, out profile) || profile.GoldPrefab == null)
-                {
-                    return;
-                }
-
-                int sandstoneBreakNumber = _sandstoneBrokenThisRun + 1;
-                bool resultIsGold = IsPrefabTechType(__result, "Gold");
-                bool originalWasSilver = IsPrefabTechType(__result, "Silver");
-                bool mustForceGold = !resultIsGold &&
-                    _goldSeenThisRun + (SandstoneWindowSize - sandstoneBreakNumber) < RequiredGolds;
-
-                if (mustForceGold && TryApplyForcedGoldEntropy(originalWasSilver, profile.SilverChance))
-                {
-                    __result = profile.GoldPrefab;
-                    resultIsGold = true;
-                    RankedLog.Info(
-                        "Force 2nd Gold applied on sandstone break " +
-                        sandstoneBreakNumber +
-                        " of " +
-                        SandstoneWindowSize +
-                        "; priorGolds=" +
-                        _goldSeenThisRun +
-                        "; slot='" +
-                        _activeSlotPath +
-                        "'.");
-                }
-
-                _sandstoneBrokenThisRun = sandstoneBreakNumber;
-                if (resultIsGold)
-                {
-                    _goldSeenThisRun++;
-                }
+                return;
             }
-            catch (Exception ex)
+
+            RankedSandstoneResourceObserver observer = sandstone.GetComponent<RankedSandstoneResourceObserver>();
+            if (observer == null)
             {
-                RankedLog.Warn("Force 2nd Gold patch failed: " + ex.Message);
+                observer = sandstone.gameObject.AddComponent<RankedSandstoneResourceObserver>();
+            }
+
+            observer.Bind(sandstone);
+            bool mustForceGold = ShouldForceNextSandstoneToGold();
+            observer.ArmForPotentialBreak(NextObservationId(), mustForceGold);
+            if (mustForceGold)
+            {
+                observer.ApplyForcedGold();
+                RestoreForcedSandstones(observer);
+            }
+            else
+            {
+                observer.RestoreOriginalState();
+                RestoreForcedSandstones(null);
             }
         }
 
-        private static bool ShouldApply()
+        private static void ResolvePendingBreaks()
         {
-            RankedSeedRuntimeProfile profile = RankedSeedRuntimeHost.GetProfile();
-            return _available &&
-                _installed &&
-                _activeSlotEligible &&
-                profile != null &&
-                profile.ForceSecondGold &&
-                RankedSeedRuntimeHost.IsSurvivalLikeMode();
+            if (PendingBreaks.Count == 0)
+            {
+                return;
+            }
+
+            Pickupable[] pickupables = UnityEngine.Object.FindObjectsOfType<Pickupable>();
+            float now = Time.unscaledTime;
+            for (int i = PendingBreaks.Count - 1; i >= 0; i--)
+            {
+                PendingSandstoneBreak pendingBreak = PendingBreaks[i];
+                if (now < pendingBreak.ResolveAt)
+                {
+                    continue;
+                }
+
+                Pickupable matchedPickup = FindMatchingPickup(pendingBreak.Position, pickupables);
+                if (matchedPickup != null)
+                {
+                    ProcessedPickupIds.Add(matchedPickup.gameObject.GetInstanceID());
+                    RecordSandstoneOutcome(CraftData.GetTechType(matchedPickup.gameObject), pendingBreak.WasForced);
+                    PendingBreaks.RemoveAt(i);
+                    continue;
+                }
+
+                if (now >= pendingBreak.ExpiresAt)
+                {
+                    RankedLog.Warn(
+                        "Unable to resolve sandstone break outcome near " +
+                        FormatVector3(pendingBreak.Position) +
+                        " before timeout. forced=" +
+                        pendingBreak.WasForced +
+                        ".");
+                    PendingBreaks.RemoveAt(i);
+                }
+            }
         }
 
-        private static bool TryGetSandstoneProfile(object resource, out SandstoneProfile profile)
+        private static Pickupable FindMatchingPickup(Vector3 position, Pickupable[] pickupables)
         {
-            profile = default(SandstoneProfile);
+            if (pickupables == null || pickupables.Length == 0)
+            {
+                return null;
+            }
 
-            GameObject defaultPrefab = DefaultPrefabField.GetValue(resource) as GameObject;
-            if (!IsPrefabTechType(defaultPrefab, "Lead"))
+            float bestDistanceSquared = PendingBreakPickupRadius * PendingBreakPickupRadius;
+            Pickupable bestPickup = null;
+
+            for (int i = 0; i < pickupables.Length; i++)
+            {
+                Pickupable pickupable = pickupables[i];
+                if (pickupable == null || pickupable.gameObject == null)
+                {
+                    continue;
+                }
+
+                int instanceId = pickupable.gameObject.GetInstanceID();
+                if (ProcessedPickupIds.Contains(instanceId))
+                {
+                    continue;
+                }
+
+                TechType techType = CraftData.GetTechType(pickupable.gameObject);
+                if (techType != TechType.Gold &&
+                    techType != TechType.Silver &&
+                    techType != TechType.Lead)
+                {
+                    continue;
+                }
+
+                float distanceSquared = (pickupable.transform.position - position).sqrMagnitude;
+                if (distanceSquared > bestDistanceSquared)
+                {
+                    continue;
+                }
+
+                bestDistanceSquared = distanceSquared;
+                bestPickup = pickupable;
+            }
+
+            return bestPickup;
+        }
+
+        private static void RecordSandstoneOutcome(TechType techType, bool wasForced)
+        {
+            if (_sandstoneBrokenThisRun >= SandstoneWindowSize)
+            {
+                return;
+            }
+
+            _sandstoneBrokenThisRun++;
+            if (techType == TechType.Gold)
+            {
+                _goldSeenThisRun++;
+            }
+
+            RankedLog.Info(
+                "Observed sandstone break " +
+                _sandstoneBrokenThisRun +
+                " of " +
+                SandstoneWindowSize +
+                ": result=" +
+                techType +
+                ", goldsSeen=" +
+                _goldSeenThisRun +
+                ", forced=" +
+                wasForced +
+                ".");
+        }
+
+        private static bool ShouldForceNextSandstoneToGold()
+        {
+            if (_sandstoneBrokenThisRun >= SandstoneWindowSize || _goldSeenThisRun >= RequiredGolds)
             {
                 return false;
             }
 
-            IList prefabs = PrefabListField.GetValue(resource) as IList;
-            if (prefabs == null || prefabs.Count == 0)
+            int nextBreakIndex = _sandstoneBrokenThisRun + 1;
+            return _goldSeenThisRun + (SandstoneWindowSize - nextBreakIndex) < RequiredGolds;
+        }
+
+        private static BreakableResource FindSandstoneBreakable(GameObject target)
+        {
+            if (target == null)
+            {
+                return null;
+            }
+
+            BreakableResource direct = target.GetComponent<BreakableResource>();
+            if (IsSandstoneBreakable(direct))
+            {
+                return direct;
+            }
+
+            BreakableResource ancestor = Utils.FindAncestorWithComponent<BreakableResource>(target);
+            return IsSandstoneBreakable(ancestor) ? ancestor : null;
+        }
+
+        private static bool IsSandstoneBreakable(BreakableResource breakable)
+        {
+            if (breakable == null || breakable.defaultPrefab == null || breakable.prefabList == null || breakable.prefabList.Count == 0)
+            {
+                return false;
+            }
+
+            if (CraftData.GetTechType(breakable.defaultPrefab) != TechType.Lead)
             {
                 return false;
             }
 
             bool foundGold = false;
             bool foundSilver = false;
-            for (int i = 0; i < prefabs.Count; i++)
+            for (int i = 0; i < breakable.prefabList.Count; i++)
             {
-                object randomPrefab = prefabs[i];
-                if (randomPrefab == null)
+                BreakableResource.RandomPrefab choice = breakable.prefabList[i];
+                if (choice == null || choice.prefab == null)
                 {
                     continue;
                 }
 
-                GameObject prefab = RandomPrefabPrefabField.GetValue(randomPrefab) as GameObject;
-                float chance = ReadSingle(RandomPrefabChanceField.GetValue(randomPrefab), 0f);
-                if (prefab == null)
+                TechType techType = CraftData.GetTechType(choice.prefab);
+                if (techType == TechType.Gold)
                 {
-                    continue;
-                }
-
-                if (IsPrefabTechType(prefab, "Gold"))
-                {
-                    profile.GoldPrefab = prefab;
                     foundGold = true;
                 }
-                else if (IsPrefabTechType(prefab, "Silver"))
+                else if (techType == TechType.Silver)
                 {
-                    profile.SilverChance = chance;
                     foundSilver = true;
                 }
             }
 
-            if (!foundGold || !foundSilver)
-            {
-                return false;
-            }
-
-            if (profile.SilverChance <= 0f)
-            {
-                profile.SilverChance = DefaultSilverChance;
-            }
-
-            return true;
+            return foundGold && foundSilver;
         }
 
-        private static bool TryApplyForcedGoldEntropy(bool originalWasSilver, float silverChance)
+        internal static void ReportPotentialSandstoneBreak(Vector3 position, int observationId, bool wasForced)
         {
-            object player = ReadStaticMember(PlayerMainField, PlayerMainProperty);
-            object playerEntropy;
-            if (player == null || !TryGetPlayerEntropyComponent(player, out playerEntropy))
+            for (int i = 0; i < PendingBreaks.Count; i++)
             {
-                return false;
-            }
-
-            if (!TryAdjustEntropy(playerEntropy, "Gold", -1f))
-            {
-                return false;
-            }
-
-            if (originalWasSilver)
-            {
-                return TryAdjustEntropy(playerEntropy, "Silver", 1f - silverChance);
-            }
-
-            return TryAdjustEntropy(playerEntropy, "Silver", -silverChance);
-        }
-
-        private static bool TryGetPlayerEntropyComponent(object player, out object playerEntropy)
-        {
-            playerEntropy = null;
-            if (PlayerEntropyType == null || player == null || GameObjectGetComponentByTypeMethod == null)
-            {
-                return false;
-            }
-
-            try
-            {
-                GameObject gameObject = (player as Component)?.gameObject;
-                if (gameObject == null)
+                if (PendingBreaks[i].ObservationId == observationId)
                 {
-                    return false;
+                    return;
                 }
+            }
 
-                playerEntropy = GameObjectGetComponentByTypeMethod.Invoke(gameObject, new object[] { PlayerEntropyType });
-                return playerEntropy != null;
-            }
-            catch
+            PendingBreaks.Add(new PendingSandstoneBreak
             {
-                return false;
-            }
+                ObservationId = observationId,
+                Position = position,
+                WasForced = wasForced,
+                ResolveAt = Time.unscaledTime + PendingBreakResolveDelaySeconds,
+                ExpiresAt = Time.unscaledTime + PendingBreakResolveTimeoutSeconds
+            });
         }
 
-        private static bool TryAdjustEntropy(object playerEntropy, string techTypeName, float delta)
+        private static int NextObservationId()
         {
-            if (playerEntropy == null || IsBlank(techTypeName))
-            {
-                return false;
-            }
+            return _nextObservationId++;
+        }
 
-            IList randomizers = PlayerEntropyRandomizersField.GetValue(playerEntropy) as IList;
-            if (randomizers == null)
+        private static void RestoreForcedSandstones(RankedSandstoneResourceObserver allowedObserver)
+        {
+            RankedSandstoneResourceObserver[] observers = UnityEngine.Object.FindObjectsOfType<RankedSandstoneResourceObserver>();
+            for (int i = 0; i < observers.Length; i++)
             {
-                return false;
-            }
-
-            for (int i = 0; i < randomizers.Count; i++)
-            {
-                object techEntropy = randomizers[i];
-                if (techEntropy == null)
+                RankedSandstoneResourceObserver observer = observers[i];
+                if (observer == null || observer == allowedObserver)
                 {
                     continue;
                 }
 
-                object techType = TechEntropyTechTypeField.GetValue(techEntropy);
-                if (!string.Equals(techType == null ? string.Empty : techType.ToString(), techTypeName, StringComparison.OrdinalIgnoreCase))
-                {
-                    continue;
-                }
-
-                object fairRandomizer = TechEntropyEntropyField.GetValue(techEntropy);
-                if (fairRandomizer == null)
-                {
-                    return false;
-                }
-
-                float currentEntropy = ReadSingle(FairRandomizerEntropyField.GetValue(fairRandomizer), 0f);
-                FairRandomizerEntropyField.SetValue(fairRandomizer, currentEntropy + delta);
-                return true;
+                observer.RestoreOriginalState();
             }
-
-            return false;
         }
 
-        private static bool IsPrefabTechType(GameObject prefab, string techTypeName)
+        private static bool ShouldApplyRuntime()
         {
-            if (prefab == null || IsBlank(techTypeName) || CraftDataGetTechTypeMethod == null)
-            {
-                return false;
-            }
-
-            try
-            {
-                object techType = CraftDataGetTechTypeMethod.Invoke(null, new object[] { prefab });
-                return string.Equals(techType == null ? string.Empty : techType.ToString(), techTypeName, StringComparison.OrdinalIgnoreCase);
-            }
-            catch
-            {
-                return false;
-            }
+            RankedSeedRuntimeProfile profile = RankedSeedRuntimeHost.GetProfile();
+            return _activeSlotEligible &&
+                   profile != null &&
+                   profile.ForceSecondGold &&
+                   RankedSeedRuntimeHost.IsSurvivalLikeMode() &&
+                   Player.main != null;
         }
 
         private static void ResetRunState(string slotPath)
@@ -365,6 +350,12 @@ namespace SubnauticaSpeedrunningRanked.Runtime.Seeds
             _activeSlotEligible = false;
             _sandstoneBrokenThisRun = 0;
             _goldSeenThisRun = 0;
+            _nextObservationId = 1;
+            _nextTargetSweepAt = 0f;
+            _nextPendingBreakSweepAt = 0f;
+            PendingBreaks.Clear();
+            ProcessedPickupIds.Clear();
+            RestoreForcedSandstones(null);
         }
 
         private static void ResetCounters(string slotPath)
@@ -372,18 +363,22 @@ namespace SubnauticaSpeedrunningRanked.Runtime.Seeds
             _activeSlotPath = NormalizeSlot(slotPath);
             _sandstoneBrokenThisRun = 0;
             _goldSeenThisRun = 0;
+            _nextObservationId = 1;
+            PendingBreaks.Clear();
+            ProcessedPickupIds.Clear();
+            RestoreForcedSandstones(null);
         }
 
         private static string NormalizeSlot(string saveSlot)
         {
-            if (IsBlank(saveSlot))
+            if (string.IsNullOrEmpty(saveSlot))
             {
                 return string.Empty;
             }
 
             try
             {
-                return Path.GetFullPath(saveSlot).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                return System.IO.Path.GetFullPath(saveSlot).TrimEnd(System.IO.Path.DirectorySeparatorChar, System.IO.Path.AltDirectorySeparatorChar);
             }
             catch
             {
@@ -391,128 +386,146 @@ namespace SubnauticaSpeedrunningRanked.Runtime.Seeds
             }
         }
 
-        private static object ReadStaticMember(FieldInfo field, PropertyInfo property)
+        private static string FormatVector3(Vector3 position)
         {
-            try
-            {
-                if (field != null)
-                {
-                    return field.GetValue(null);
-                }
-
-                if (property != null)
-                {
-                    return property.GetValue(null, null);
-                }
-            }
-            catch
-            {
-            }
-
-            return null;
+            return position.x.ToString("0.###") + "," + position.y.ToString("0.###") + "," + position.z.ToString("0.###");
         }
 
-        private static float ReadSingle(object value, float fallback)
+        private struct PendingSandstoneBreak
         {
-            try
-            {
-                if (value == null)
-                {
-                    return fallback;
-                }
-
-                return Convert.ToSingle(value, CultureInfo.InvariantCulture);
-            }
-            catch
-            {
-                return fallback;
-            }
+            public int ObservationId;
+            public Vector3 Position;
+            public bool WasForced;
+            public float ResolveAt;
+            public float ExpiresAt;
         }
 
-        private static Type ResolveType(string qualifiedName)
+        internal sealed class RankedSandstoneResourceObserver : MonoBehaviour
         {
-            try
+            private BreakableResource _breakable;
+            private GameObject _originalDefaultPrefab;
+            private float[] _originalChances;
+            private bool _initialized;
+            private bool _armed;
+            private bool _forceApplied;
+            private int _observationId;
+            private float _lastArmedAt;
+
+            public void Bind(BreakableResource breakable)
             {
-                Type resolved = Type.GetType(qualifiedName, false);
-                if (resolved != null)
+                if (_initialized || breakable == null)
                 {
-                    return resolved;
+                    return;
                 }
 
-                int commaIndex = qualifiedName.IndexOf(',');
-                string typeName = commaIndex > 0 ? qualifiedName.Substring(0, commaIndex).Trim() : qualifiedName.Trim();
-                Assembly[] assemblies = AppDomain.CurrentDomain.GetAssemblies();
-                for (int i = 0; i < assemblies.Length; i++)
+                _breakable = breakable;
+                _originalDefaultPrefab = breakable.defaultPrefab;
+                _originalChances = new float[breakable.prefabList.Count];
+                for (int i = 0; i < breakable.prefabList.Count; i++)
                 {
-                    try
+                    _originalChances[i] = breakable.prefabList[i] != null ? breakable.prefabList[i].chance : 0f;
+                }
+
+                _initialized = true;
+            }
+
+            public void ArmForPotentialBreak(int observationId, bool forceGold)
+            {
+                if (!_initialized)
+                {
+                    return;
+                }
+
+                _armed = true;
+                _observationId = observationId;
+                _lastArmedAt = Time.unscaledTime;
+                if (forceGold)
+                {
+                    ApplyForcedGold();
+                }
+                else
+                {
+                    RestoreOriginalState();
+                }
+            }
+
+            public void ApplyForcedGold()
+            {
+                if (!_initialized || _forceApplied || _breakable == null || _breakable.prefabList == null || _breakable.prefabList.Count == 0)
+                {
+                    return;
+                }
+
+                GameObject goldPrefab = null;
+                for (int i = 0; i < _breakable.prefabList.Count; i++)
+                {
+                    BreakableResource.RandomPrefab choice = _breakable.prefabList[i];
+                    if (choice == null || choice.prefab == null)
                     {
-                        resolved = assemblies[i].GetType(typeName, false);
-                        if (resolved != null)
-                        {
-                            return resolved;
-                        }
+                        continue;
                     }
-                    catch
+
+                    if (CraftData.GetTechType(choice.prefab) == TechType.Gold)
                     {
+                        goldPrefab = choice.prefab;
+                        break;
                     }
                 }
-            }
-            catch
-            {
-            }
 
-            return null;
-        }
-
-        private static FieldInfo FindField(Type declaringType, string name)
-        {
-            if (declaringType == null || IsBlank(name))
-            {
-                return null;
-            }
-
-            return declaringType.GetField(name, StaticFlags | InstanceFlags);
-        }
-
-        private static PropertyInfo FindProperty(Type declaringType, string name)
-        {
-            if (declaringType == null || IsBlank(name))
-            {
-                return null;
-            }
-
-            return declaringType.GetProperty(name, StaticFlags | InstanceFlags);
-        }
-
-        private static MethodInfo FindCraftDataGetTechTypeMethod(Type craftDataType)
-        {
-            if (craftDataType == null)
-            {
-                return null;
-            }
-
-            MethodInfo[] methods = craftDataType.GetMethods(StaticFlags);
-            for (int i = 0; i < methods.Length; i++)
-            {
-                MethodInfo method = methods[i];
-                if (!string.Equals(method.Name, "GetTechType", StringComparison.Ordinal))
+                if (goldPrefab == null)
                 {
-                    continue;
+                    return;
                 }
 
-                ParameterInfo[] parameters = method.GetParameters();
-                if (parameters != null && parameters.Length == 1 && parameters[0].ParameterType == typeof(GameObject))
+                _breakable.defaultPrefab = goldPrefab;
+                for (int i = 0; i < _breakable.prefabList.Count; i++)
                 {
-                    return method;
+                    BreakableResource.RandomPrefab choice = _breakable.prefabList[i];
+                    if (choice == null)
+                    {
+                        continue;
+                    }
+
+                    choice.chance = choice.prefab == goldPrefab ? 1f : 0f;
                 }
+
+                _forceApplied = true;
             }
 
-            return null;
-        }
+            public void RestoreOriginalState()
+            {
+                if (!_initialized || !_forceApplied || _breakable == null || _breakable.prefabList == null)
+                {
+                    return;
+                }
 
-        private static bool IsBlank(string value)
-        {
-            return value == null || value.Trim().Length == 0;
+                _breakable.defaultPrefab = _originalDefaultPrefab;
+                int count = Mathf.Min(_breakable.prefabList.Count, _originalChances != null ? _originalChances.Length : 0);
+                for (int i = 0; i < count; i++)
+                {
+                    BreakableResource.RandomPrefab choice = _breakable.prefabList[i];
+                    if (choice == null)
+                    {
+                        continue;
+                    }
+
+                    choice.chance = _originalChances[i];
+                }
+
+                _forceApplied = false;
+            }
+
+            private void OnDisable()
+            {
+                if (_armed && Time.unscaledTime - _lastArmedAt <= ArmedBreakWindowSeconds)
+                {
+                    RankedForceSecondGoldRuntime.ReportPotentialSandstoneBreak(transform.position, _observationId, _forceApplied);
+                }
+
+                RestoreOriginalState();
+                _armed = false;
+                _observationId = 0;
+            }
         }
     }
 }

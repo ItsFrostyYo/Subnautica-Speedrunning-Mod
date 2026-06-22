@@ -175,27 +175,27 @@ namespace SubnauticaSpeedrunningRanked.Runtime.Seeds
         public static List<RankedSpawnMultiplierEntry> CreateDefaultFragmentEntries()
         {
             List<RankedSpawnMultiplierEntry> entries = CreateSpawnEntries(FragmentTechTypeNames, 1f);
-            ApplySeededSpawnRange(entries, "SeaglideFragment", 1.5f, 3f, 0.25f);
-            ApplySeededSpawnRange(entries, "ConstructorFragment", 1.5f, 3f, 0.25f);
-            ApplySeededSpawnRange(entries, "MoonpoolFragment", 1.5f, 3f, 0.25f);
-            ApplySeededSpawnRange(entries, "CyclopsBridgeFragment", 1.5f, 2.5f, 0.25f);
-            ApplySeededSpawnRange(entries, "CyclopsHullFragment", 1.5f, 2.5f, 0.25f);
-            ApplySeededSpawnRange(entries, "CyclopsEngineFragment", 1.5f, 2.5f, 0.25f);
+            ApplySeededSpawnRange(entries, "SeaglideFragment", 1.5f, 4.5f, 0.75f);
+            ApplySeededSpawnRange(entries, "ConstructorFragment", 2f, 4f, 0.5f);
+            ApplySeededSpawnRange(entries, "MoonpoolFragment", 2f, 3.5f, 0.5f);
+            ApplySeededSpawnRange(entries, "CyclopsBridgeFragment", 1.5f, 4f, 0.5f);
+            ApplySeededSpawnRange(entries, "CyclopsHullFragment", 1.5f, 4f, 0.5f);
+            ApplySeededSpawnRange(entries, "CyclopsEngineFragment", 1.5f, 3.5f, 0.5f);
             return entries;
         }
 
         public static List<RankedSpawnMultiplierEntry> CreateDefaultResourceEntries()
         {
             List<RankedSpawnMultiplierEntry> entries = CreateSpawnEntries(ResourceTechTypeNames, 1f);
-            ApplySeededSpawnRange(entries, "ScrapMetal", 1.5f, 3f, 0.5f);
-            ApplySeededSpawnRange(entries, "SandstoneChunk", 1.5f, 2.25f, 0.25f);
-            ApplySeededSpawnRange(entries, "ShaleChunk", 1.5f, 2.25f, 0.25f);
-            ApplySeededSpawnRange(entries, "Lithium", 1.5f, 2.25f, 0.25f);
-            ApplySeededSpawnRange(entries, "Sulphur", 1.5f, 2.25f, 0.25f);
-            ApplySeededSpawnRange(entries, "Kyanite", 1.5f, 2.25f, 0.25f);
-            ApplySeededSpawnRange(entries, "AluminumOxide", 1.5f, 2.25f, 0.25f);
-            ApplySeededSpawnRange(entries, "JellyPlant", 1.5f, 2.25f, 0.25f);
-            ApplySeededSpawnRange(entries, "Nickel", 1.5f, 3.5f, 0.25f);
+            ApplySeededSpawnRange(entries, "ScrapMetal", 2f, 5f, 0.5f);
+            ApplySeededSpawnRange(entries, "SandstoneChunk", 1.5f, 4f, 0.5f);
+            ApplySeededSpawnRange(entries, "ShaleChunk", 1.5f, 4f, 0.5f);
+            ApplySeededSpawnRange(entries, "Lithium", 2f, 4f, 0.4f);
+            ApplySeededSpawnRange(entries, "Sulphur", 2f, 5f, 0.5f);
+            ApplySeededSpawnRange(entries, "Kyanite", 2f, 4f, 0.4f);
+            ApplySeededSpawnRange(entries, "AluminumOxide", 1.5f, 3.5f, 0.5f);
+            ApplySeededSpawnRange(entries, "JellyPlant", 2f, 4f, 0.5f);
+            ApplySeededSpawnRange(entries, "Nickel", 3f, 10f, 1f);
             return entries;
         }
 
@@ -235,7 +235,7 @@ namespace SubnauticaSpeedrunningRanked.Runtime.Seeds
                 new RankedBiomeMultiplierEntry
                 {
                     Name = "SafeShallows_ShellTunnel",
-                    ChanceMultiplier = 2f
+                    ChanceMultiplier = 2.5f
                 }
             };
         }
@@ -312,6 +312,46 @@ namespace SubnauticaSpeedrunningRanked.Runtime.Seeds
             EnsureManualCreatureSpawnEntries(entries, CreateDefaultManualCreatureSpawns());
         }
 
+        public static bool SyncCurrentFragmentEntries(List<RankedSpawnMultiplierEntry> entries)
+        {
+            return SyncSpawnEntries(entries, CreateDefaultFragmentEntries());
+        }
+
+        public static bool SyncCurrentResourceEntries(List<RankedSpawnMultiplierEntry> entries)
+        {
+            return SyncSpawnEntries(entries, CreateDefaultResourceEntries());
+        }
+
+        public static bool SyncCurrentCreatureEntries(List<RankedSpawnMultiplierEntry> entries)
+        {
+            return SyncSpawnEntries(entries, CreateDefaultCreatureEntries());
+        }
+
+        public static bool SyncCurrentAlwaysEntries(List<RankedSpawnMultiplierEntry> entries)
+        {
+            return SyncSpawnEntries(entries, CreateDefaultAlwaysEntries());
+        }
+
+        public static bool SyncCurrentBiomeEntries(List<RankedBiomeMultiplierEntry> entries)
+        {
+            return SyncBiomeEntries(entries, CreateDefaultBiomeEntries());
+        }
+
+        public static bool SyncCurrentAlwaysBiomeEntries(List<RankedBiomeMultiplierEntry> entries)
+        {
+            return SyncBiomeEntries(entries, CreateDefaultAlwaysBiomeEntries());
+        }
+
+        public static bool SyncCurrentAlwaysBiomeTechEntries(List<RankedBiomeTechMultiplierEntry> entries)
+        {
+            return SyncBiomeTechEntries(entries, CreateDefaultAlwaysBiomeTechEntries());
+        }
+
+        public static bool SyncCurrentManualCreatureSpawnEntries(List<RankedManualCreatureSpawnEntry> entries)
+        {
+            return SyncManualCreatureSpawnEntries(entries, CreateDefaultManualCreatureSpawns());
+        }
+
         public static void EnsureDefaultBiomeEntries(List<RankedBiomeMultiplierEntry> entries)
         {
             EnsureBiomeEntries(entries, CreateDefaultBiomeEntries());
@@ -327,18 +367,18 @@ namespace SubnauticaSpeedrunningRanked.Runtime.Seeds
             AddBiomeEntries(entries, MountainsBiomes);
             AddBiomeEntries(entries, InactiveLavaZoneCastleBiomes);
 
-            ApplySeededBiomeRange(entries, new[] { "SafeShallows_TechSite", "SafeShallows_TechSite_Barrier", "SafeShallows_TechSite_Scattered" }, 1.5f, 3f, 0.25f);
-            ApplySeededBiomeRange(entries, new[] { "SafeShallows_CaveWall", "SafeShallows_CaveSpecial", "SafeShallows_Wall", "SafeShallows_CaveFloor" }, 1.5f, 3f, 0.25f);
-            ApplySeededBiomeRange(entries, new[] { "SafeShallows_ShellTunnelHuge" }, 1.5f, 3f, 0.25f);
-            ApplySeededBiomeRange(entries, new[] { "Kelp_GrassSparse", "Kelp_GrassDense", "Kelp_Sand", "Kelp_Wall" }, 1.5f, 3f, 0.25f);
-            ApplySeededBiomeRange(entries, new[] { "Kelp_CaveWall", "Kelp_CaveFloor", "Kelp_CaveSpecial", "Kelp_ShellTunnel" }, 1.5f, 3f, 0.25f);
-            ApplySeededBiomeRange(entries, new[] { "SparseReef_Wall", "SparseReef_Spike", "SparseReef_DeepWall", "SparseReef_CaveFloor", "SparseReef_CaveWall", "SparseReef_CaveCoral", "SparseReef_DeepCoral", "SparseReef_DeepFloor" }, 1.5f, 3f, 0.25f);
-            ApplySeededBiomeRange(entries, new[] { "SparseReef_Techsite", "SparseReef_Techsite_Barrier", "SparseReef_Techsite_Scatter", "SparseReef_Sand" }, 1.5f, 3f, 0.25f);
-            ApplySeededBiomeRange(entries, new[] { "SeaTreaderPath_Path", "SeaTreaderPath_Grass", "SeaTreaderPath_Rock", "SeaTreaderPath_CaveWall", "SeaTreaderPath_CaveFloor", "SeaTreaderPath_CaveCeiling" }, 1.5f, 3f, 0.25f);
-            ApplySeededBiomeRange(entries, new[] { "SeaTreaderPath_TechSite", "SeaTreaderPath_TechSite_Barrier", "SeaTreaderPath_TechSite_Scatter", "SeaTreaderPath_Sand" }, 1.5f, 3f, 0.25f);
-            ApplySeededBiomeRange(entries, new[] { "Mountains_ThermalVent", "Mountains_Rock", "Mountains_CaveFloor", "Mountains_CaveWall", "Mountains_IslandCaveWall", "Mountains_CaveCeiling", "Mountains_IslandCaveCeiling", "Mountains_IslandCaveFloor" }, 1.5f, 3f, 0.25f);
-            ApplySeededBiomeRange(entries, new[] { "Mountains_Sand", "Mountains_Grass", "Mountains_IslandSand", "Mountains_IslandGrass", "Mountains_TechSite", "Mountains_TechSite_Barrier", "Mountains_TechSite_Scatter" }, 1.5f, 3f, 0.25f);
-            ApplySeededBiomeRange(entries, InactiveLavaZoneCastleBiomes, 1.5f, 3f, 0.25f);
+            ApplySeededBiomeRange(entries, new[] { "SafeShallows_TechSite", "SafeShallows_TechSite_Barrier", "SafeShallows_TechSite_Scattered" }, 2f, 4.5f, 0.5f);
+            ApplySeededBiomeRange(entries, new[] { "SafeShallows_CaveWall", "SafeShallows_CaveSpecial", "SafeShallows_Wall", "SafeShallows_CaveFloor" }, 1.5f, 3.5f, 0.5f);
+            ApplySeededBiomeRange(entries, new[] { "SafeShallows_ShellTunnelHuge" }, 1.5f, 6f, 0.75f);
+            ApplySeededBiomeRange(entries, new[] { "Kelp_GrassSparse", "Kelp_GrassDense", "Kelp_Sand", "Kelp_Wall" }, 1.5f, 3.5f, 0.5f);
+            ApplySeededBiomeRange(entries, new[] { "Kelp_CaveWall", "Kelp_CaveFloor", "Kelp_CaveSpecial", "Kelp_ShellTunnel" }, 1.5f, 3.5f, 0.5f);
+            ApplySeededBiomeRange(entries, new[] { "SparseReef_Wall", "SparseReef_Spike", "SparseReef_DeepWall", "SparseReef_CaveFloor", "SparseReef_CaveWall", "SparseReef_CaveCoral", "SparseReef_DeepCoral", "SparseReef_DeepFloor" }, 1.5f, 3.5f, 0.5f);
+            ApplySeededBiomeRange(entries, new[] { "SparseReef_Techsite", "SparseReef_Techsite_Barrier", "SparseReef_Techsite_Scatter", "SparseReef_Sand" }, 1.5f, 4f, 0.5f);
+            ApplySeededBiomeRange(entries, new[] { "SeaTreaderPath_Path", "SeaTreaderPath_Grass", "SeaTreaderPath_Rock", "SeaTreaderPath_CaveWall", "SeaTreaderPath_CaveFloor", "SeaTreaderPath_CaveCeiling" }, 1.5f, 3.5f, 0.5f);
+            ApplySeededBiomeRange(entries, new[] { "SeaTreaderPath_TechSite", "SeaTreaderPath_TechSite_Barrier", "SeaTreaderPath_TechSite_Scatter", "SeaTreaderPath_Sand" }, 1.5f, 4f, 0.5f);
+            ApplySeededBiomeRange(entries, new[] { "Mountains_ThermalVent", "Mountains_Rock", "Mountains_CaveFloor", "Mountains_CaveWall", "Mountains_IslandCaveWall", "Mountains_CaveCeiling", "Mountains_IslandCaveCeiling", "Mountains_IslandCaveFloor" }, 1.5f, 4f, 0.5f);
+            ApplySeededBiomeRange(entries, new[] { "Mountains_Sand", "Mountains_Grass", "Mountains_IslandSand", "Mountains_IslandGrass", "Mountains_TechSite", "Mountains_TechSite_Barrier", "Mountains_TechSite_Scatter" }, 1.5f, 4f, 0.5f);
+            ApplySeededBiomeRange(entries, InactiveLavaZoneCastleBiomes, 2f, 4.5f, 0.75f);
 
             return entries;
         }
@@ -479,6 +519,51 @@ namespace SubnauticaSpeedrunningRanked.Runtime.Seeds
             }
         }
 
+        private static bool SyncSpawnEntries(List<RankedSpawnMultiplierEntry> target, List<RankedSpawnMultiplierEntry> defaults)
+        {
+            if (target == null || defaults == null)
+            {
+                return false;
+            }
+
+            bool changed = false;
+            for (int i = 0; i < defaults.Count; i++)
+            {
+                RankedSpawnMultiplierEntry defaultEntry = defaults[i];
+                if (defaultEntry == null || string.IsNullOrEmpty(defaultEntry.Name))
+                {
+                    continue;
+                }
+
+                for (int j = 0; j < target.Count; j++)
+                {
+                    RankedSpawnMultiplierEntry existing = target[j];
+                    if (existing == null || !string.Equals(existing.Name, defaultEntry.Name, System.StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+
+                    if (existing.ChanceMultiplier != defaultEntry.ChanceMultiplier ||
+                        existing.UseSeedRange != defaultEntry.UseSeedRange ||
+                        existing.MinChanceMultiplier != defaultEntry.MinChanceMultiplier ||
+                        existing.MaxChanceMultiplier != defaultEntry.MaxChanceMultiplier ||
+                        existing.ResolutionStep != defaultEntry.ResolutionStep)
+                    {
+                        existing.ChanceMultiplier = defaultEntry.ChanceMultiplier;
+                        existing.UseSeedRange = defaultEntry.UseSeedRange;
+                        existing.MinChanceMultiplier = defaultEntry.MinChanceMultiplier;
+                        existing.MaxChanceMultiplier = defaultEntry.MaxChanceMultiplier;
+                        existing.ResolutionStep = defaultEntry.ResolutionStep;
+                        changed = true;
+                    }
+
+                    break;
+                }
+            }
+
+            return changed;
+        }
+
         private static void EnsureBiomeEntries(List<RankedBiomeMultiplierEntry> target, List<RankedBiomeMultiplierEntry> defaults)
         {
             if (target == null || defaults == null)
@@ -518,6 +603,51 @@ namespace SubnauticaSpeedrunningRanked.Runtime.Seeds
                     });
                 }
             }
+        }
+
+        private static bool SyncBiomeEntries(List<RankedBiomeMultiplierEntry> target, List<RankedBiomeMultiplierEntry> defaults)
+        {
+            if (target == null || defaults == null)
+            {
+                return false;
+            }
+
+            bool changed = false;
+            for (int i = 0; i < defaults.Count; i++)
+            {
+                RankedBiomeMultiplierEntry defaultEntry = defaults[i];
+                if (defaultEntry == null || string.IsNullOrEmpty(defaultEntry.Name))
+                {
+                    continue;
+                }
+
+                for (int j = 0; j < target.Count; j++)
+                {
+                    RankedBiomeMultiplierEntry existing = target[j];
+                    if (existing == null || !string.Equals(existing.Name, defaultEntry.Name, System.StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+
+                    if (existing.ChanceMultiplier != defaultEntry.ChanceMultiplier ||
+                        existing.UseSeedRange != defaultEntry.UseSeedRange ||
+                        existing.MinChanceMultiplier != defaultEntry.MinChanceMultiplier ||
+                        existing.MaxChanceMultiplier != defaultEntry.MaxChanceMultiplier ||
+                        existing.ResolutionStep != defaultEntry.ResolutionStep)
+                    {
+                        existing.ChanceMultiplier = defaultEntry.ChanceMultiplier;
+                        existing.UseSeedRange = defaultEntry.UseSeedRange;
+                        existing.MinChanceMultiplier = defaultEntry.MinChanceMultiplier;
+                        existing.MaxChanceMultiplier = defaultEntry.MaxChanceMultiplier;
+                        existing.ResolutionStep = defaultEntry.ResolutionStep;
+                        changed = true;
+                    }
+
+                    break;
+                }
+            }
+
+            return changed;
         }
 
         private static void EnsureBiomeTechEntries(List<RankedBiomeTechMultiplierEntry> target, List<RankedBiomeTechMultiplierEntry> defaults)
@@ -560,6 +690,47 @@ namespace SubnauticaSpeedrunningRanked.Runtime.Seeds
                     });
                 }
             }
+        }
+
+        private static bool SyncBiomeTechEntries(List<RankedBiomeTechMultiplierEntry> target, List<RankedBiomeTechMultiplierEntry> defaults)
+        {
+            if (target == null || defaults == null)
+            {
+                return false;
+            }
+
+            bool changed = false;
+            for (int i = 0; i < defaults.Count; i++)
+            {
+                RankedBiomeTechMultiplierEntry defaultEntry = defaults[i];
+                if (defaultEntry == null ||
+                    string.IsNullOrEmpty(defaultEntry.TechTypeName) ||
+                    string.IsNullOrEmpty(defaultEntry.BiomeName))
+                {
+                    continue;
+                }
+
+                for (int j = 0; j < target.Count; j++)
+                {
+                    RankedBiomeTechMultiplierEntry existing = target[j];
+                    if (existing == null ||
+                        !string.Equals(existing.TechTypeName, defaultEntry.TechTypeName, System.StringComparison.OrdinalIgnoreCase) ||
+                        !string.Equals(existing.BiomeName, defaultEntry.BiomeName, System.StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+
+                    if (existing.ChanceMultiplier != defaultEntry.ChanceMultiplier)
+                    {
+                        existing.ChanceMultiplier = defaultEntry.ChanceMultiplier;
+                        changed = true;
+                    }
+
+                    break;
+                }
+            }
+
+            return changed;
         }
 
         private static void EnsureManualCreatureSpawnEntries(List<RankedManualCreatureSpawnEntry> target, List<RankedManualCreatureSpawnEntry> defaults)
@@ -623,6 +794,102 @@ namespace SubnauticaSpeedrunningRanked.Runtime.Seeds
                     });
                 }
             }
+        }
+
+        private static bool SyncManualCreatureSpawnEntries(List<RankedManualCreatureSpawnEntry> target, List<RankedManualCreatureSpawnEntry> defaults)
+        {
+            if (target == null || defaults == null)
+            {
+                return false;
+            }
+
+            bool changed = false;
+            for (int i = 0; i < defaults.Count; i++)
+            {
+                RankedManualCreatureSpawnEntry defaultEntry = defaults[i];
+                if (defaultEntry == null || string.IsNullOrEmpty(defaultEntry.TechTypeName))
+                {
+                    continue;
+                }
+
+                for (int j = 0; j < target.Count; j++)
+                {
+                    RankedManualCreatureSpawnEntry existing = target[j];
+                    if (existing == null ||
+                        !string.Equals(existing.TechTypeName, defaultEntry.TechTypeName, System.StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+
+                    if (existing.UseSeedRange != defaultEntry.UseSeedRange ||
+                        existing.Amount != defaultEntry.Amount ||
+                        existing.MinAmount != defaultEntry.MinAmount ||
+                        existing.MaxAmount != defaultEntry.MaxAmount ||
+                        existing.AmountStep != defaultEntry.AmountStep)
+                    {
+                        existing.UseSeedRange = defaultEntry.UseSeedRange;
+                        existing.Amount = defaultEntry.Amount;
+                        existing.MinAmount = defaultEntry.MinAmount;
+                        existing.MaxAmount = defaultEntry.MaxAmount;
+                        existing.AmountStep = defaultEntry.AmountStep;
+                        changed = true;
+                    }
+
+                    if (SyncSpawnPoints(existing, defaultEntry))
+                    {
+                        changed = true;
+                    }
+
+                    break;
+                }
+            }
+
+            return changed;
+        }
+
+        private static bool SyncSpawnPoints(RankedManualCreatureSpawnEntry target, RankedManualCreatureSpawnEntry defaults)
+        {
+            if (target == null || defaults == null)
+            {
+                return false;
+            }
+
+            bool changed = false;
+            List<RankedSpawnPointDefinition> targetPoints = target.SpawnPoints ?? new List<RankedSpawnPointDefinition>();
+            List<RankedSpawnPointDefinition> defaultPoints = defaults.SpawnPoints ?? new List<RankedSpawnPointDefinition>();
+
+            if (target.SpawnPoints == null)
+            {
+                target.SpawnPoints = targetPoints;
+                changed = true;
+            }
+
+            if (targetPoints.Count != defaultPoints.Count)
+            {
+                targetPoints.Clear();
+                for (int i = 0; i < defaultPoints.Count; i++)
+                {
+                    RankedSpawnPointDefinition point = defaultPoints[i];
+                    targetPoints.Add(new RankedSpawnPointDefinition { X = point.X, Y = point.Y, Z = point.Z });
+                }
+
+                return true;
+            }
+
+            for (int i = 0; i < defaultPoints.Count; i++)
+            {
+                RankedSpawnPointDefinition targetPoint = targetPoints[i];
+                RankedSpawnPointDefinition defaultPoint = defaultPoints[i];
+                if (targetPoint.X != defaultPoint.X || targetPoint.Y != defaultPoint.Y || targetPoint.Z != defaultPoint.Z)
+                {
+                    targetPoint.X = defaultPoint.X;
+                    targetPoint.Y = defaultPoint.Y;
+                    targetPoint.Z = defaultPoint.Z;
+                    changed = true;
+                }
+            }
+
+            return changed;
         }
     }
 }

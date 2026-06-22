@@ -1,6 +1,6 @@
 # Launcher Architecture
 
-Current public beta: `Beta-0.3.0`
+Current public beta: `Beta-0.3.1`
 
 This document is the technical note for the ranked loading stack.
 

@@ -1,6 +1,6 @@
 # Subnautica Speedrunning Ranked Mod
 
-Current public beta: `Beta-0.3.0`
+Current public beta: `Beta-0.3.1`
 
 This is a custom ranked client for the official September 2018 Subnautica speedrun build. It is not a generic mod pack and it is not built around BepInEx. The client is made specifically for the real September 2018 game files, with its own launcher, loader, runtime, UI layer, seed system, timer system, and future ranked support.
 

@@ -13,6 +13,7 @@ $launcherProject = Join-Path $root "src\SubnauticaSpeedrunningRanked.Launcher\Su
 $bootstrapProject = Join-Path $root "src\SubnauticaSpeedrunningRanked.Bootstrap\SubnauticaSpeedrunningRanked.Bootstrap.csproj"
 $runtimeProject = Join-Path $root "src\SubnauticaSpeedrunningRanked.Runtime\SubnauticaSpeedrunningRanked.Runtime.csproj"
 $updaterProject = Join-Path $root "src\SubnauticaSpeedrunningRanked.Updater\SubnauticaSpeedrunningRanked.Updater.csproj"
+$sharedSeedHelperScript = Join-Path $root "queue-shared-seed.ps1"
 $legacyRootLauncherFiles = @(
     "Launch Ranked.exe",
     "Launch Ranked.dll",
@@ -154,6 +155,7 @@ Invoke-NativeCommand -FilePath dotnet -Arguments @("publish", $launcherProject, 
 Invoke-NativeCommand -FilePath dotnet -Arguments @("publish", $bootstrapProject, "-c", "Release", "-o", (Join-Path $distRoot "Bootstrap"))
 Invoke-NativeCommand -FilePath dotnet -Arguments @("publish", $runtimeProject, "-c", "Release", "-o", (Join-Path $distRoot "Runtime"))
 Invoke-NativeCommand -FilePath dotnet -Arguments @("publish", $updaterProject, "-c", "Release", "-o", (Join-Path $distRoot "Updater"))
+Copy-IfExists -Source $sharedSeedHelperScript -Destination (Join-Path $distRoot "queue-shared-seed.ps1")
 
 $targetRankedRoot = Join-Path $GameRoot "SubnauticaSpeedrunningRanked"
 Ensure-Directory $targetRankedRoot
