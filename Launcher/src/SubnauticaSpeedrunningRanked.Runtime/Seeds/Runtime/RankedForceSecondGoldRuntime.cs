@@ -12,6 +12,8 @@ namespace SubnauticaSpeedrunningRanked.Runtime.Seeds
         private const float PendingBreakResolveTimeoutSeconds = 3f;
         private const float PendingBreakPickupRadius = 4f;
         private const float ArmedBreakWindowSeconds = 1f;
+        private const float TargetSweepIntervalSeconds = 0.15f;
+        private const float PendingBreakSweepIntervalSeconds = 0.15f;
 
         private static readonly List<PendingSandstoneBreak> PendingBreaks = new List<PendingSandstoneBreak>();
         private static readonly HashSet<int> ProcessedPickupIds = new HashSet<int>();
@@ -23,6 +25,7 @@ namespace SubnauticaSpeedrunningRanked.Runtime.Seeds
         private static int _nextObservationId = 1;
         private static float _nextTargetSweepAt;
         private static float _nextPendingBreakSweepAt;
+        private static RankedSandstoneResourceObserver _activeForcedObserver;
 
         public static bool EnsureInstalled()
         {
@@ -56,25 +59,25 @@ namespace SubnauticaSpeedrunningRanked.Runtime.Seeds
         {
             if (!ShouldApplyRuntime())
             {
-                RestoreForcedSandstones(null);
+                RestoreForcedObserver(null);
                 return;
             }
 
             if (Time.unscaledTime >= _nextTargetSweepAt)
             {
-                _nextTargetSweepAt = Time.unscaledTime + 0.05f;
+                _nextTargetSweepAt = Time.unscaledTime + TargetSweepIntervalSeconds;
                 UpdateTargetedSandstone();
             }
 
-            if (Time.unscaledTime >= _nextPendingBreakSweepAt)
+            if (PendingBreaks.Count > 0 && Time.unscaledTime >= _nextPendingBreakSweepAt)
             {
-                _nextPendingBreakSweepAt = Time.unscaledTime + 0.05f;
+                _nextPendingBreakSweepAt = Time.unscaledTime + PendingBreakSweepIntervalSeconds;
                 ResolvePendingBreaks();
             }
 
             if (_sandstoneBrokenThisRun >= SandstoneWindowSize || _goldSeenThisRun >= RequiredGolds)
             {
-                RestoreForcedSandstones(null);
+                RestoreForcedObserver(null);
             }
         }
 
@@ -92,7 +95,7 @@ namespace SubnauticaSpeedrunningRanked.Runtime.Seeds
             {
                 if (!ShouldForceNextSandstoneToGold())
                 {
-                    RestoreForcedSandstones(null);
+                    RestoreForcedObserver(null);
                 }
 
                 return;
@@ -110,12 +113,15 @@ namespace SubnauticaSpeedrunningRanked.Runtime.Seeds
             if (mustForceGold)
             {
                 observer.ApplyForcedGold();
-                RestoreForcedSandstones(observer);
+                RestoreForcedObserver(observer);
             }
             else
             {
                 observer.RestoreOriginalState();
-                RestoreForcedSandstones(null);
+                if (ReferenceEquals(_activeForcedObserver, observer))
+                {
+                    _activeForcedObserver = null;
+                }
             }
         }
 
@@ -319,18 +325,21 @@ namespace SubnauticaSpeedrunningRanked.Runtime.Seeds
             return _nextObservationId++;
         }
 
-        private static void RestoreForcedSandstones(RankedSandstoneResourceObserver allowedObserver)
+        private static void RestoreForcedObserver(RankedSandstoneResourceObserver allowedObserver)
         {
-            RankedSandstoneResourceObserver[] observers = UnityEngine.Object.FindObjectsOfType<RankedSandstoneResourceObserver>();
-            for (int i = 0; i < observers.Length; i++)
+            if (_activeForcedObserver != null && !ReferenceEquals(_activeForcedObserver, allowedObserver))
             {
-                RankedSandstoneResourceObserver observer = observers[i];
-                if (observer == null || observer == allowedObserver)
-                {
-                    continue;
-                }
+                _activeForcedObserver.RestoreOriginalState();
+            }
 
-                observer.RestoreOriginalState();
+            _activeForcedObserver = allowedObserver;
+        }
+
+        internal static void NotifyObserverDestroyed(RankedSandstoneResourceObserver observer)
+        {
+            if (ReferenceEquals(_activeForcedObserver, observer))
+            {
+                _activeForcedObserver = null;
             }
         }
 
@@ -355,7 +364,7 @@ namespace SubnauticaSpeedrunningRanked.Runtime.Seeds
             _nextPendingBreakSweepAt = 0f;
             PendingBreaks.Clear();
             ProcessedPickupIds.Clear();
-            RestoreForcedSandstones(null);
+            RestoreForcedObserver(null);
         }
 
         private static void ResetCounters(string slotPath)
@@ -366,7 +375,7 @@ namespace SubnauticaSpeedrunningRanked.Runtime.Seeds
             _nextObservationId = 1;
             PendingBreaks.Clear();
             ProcessedPickupIds.Clear();
-            RestoreForcedSandstones(null);
+            RestoreForcedObserver(null);
         }
 
         private static string NormalizeSlot(string saveSlot)
@@ -525,6 +534,11 @@ namespace SubnauticaSpeedrunningRanked.Runtime.Seeds
                 RestoreOriginalState();
                 _armed = false;
                 _observationId = 0;
+            }
+
+            private void OnDestroy()
+            {
+                RankedForceSecondGoldRuntime.NotifyObserverDestroyed(this);
             }
         }
     }

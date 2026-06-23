@@ -51,6 +51,19 @@ function Copy-IfExists {
     }
 }
 
+function Write-PortableRootLauncher {
+    param([string] $Path)
+
+    $content = @"
+@echo off
+setlocal
+cd /d "%~dp0"
+start "" "%~dp0SubnauticaSpeedrunningRanked\Launch Ranked.exe" %*
+"@
+
+    Set-Content -Path $Path -Value $content -Encoding ASCII
+}
+
 if ($BuildFirst) {
     & (Join-Path $launcherRoot "build.ps1")
 }
@@ -61,6 +74,7 @@ if (Test-Path $packageRoot) {
 }
 
 & (Join-Path $launcherRoot "publish-to-game.ps1") -GameRoot $packageRoot -TransportRoot $TransportRoot
+Write-PortableRootLauncher -Path (Join-Path $packageRoot "Launch Ranked.cmd")
 
 if (Test-Path $archivePath) {
     Remove-Item -LiteralPath $archivePath -Force
@@ -78,6 +92,7 @@ Subnautica Speedrunning Ranked Release
 1. Copy everything in this folder into the same folder as `Subnautica.exe`.
 2. Make sure Subnautica is fully closed first.
 3. Launch with:
+   - Launch Ranked.cmd
    - SubnauticaSpeedrunningRanked\Launch Ranked.exe
 4. After the first launch, the client will create a Launch Ranked shortcut in the game root.
 
