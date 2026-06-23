@@ -1,6 +1,6 @@
 # Subnautica Speedrunning Ranked Mod
 
-Current public beta: `Beta-0.3.1`
+Current public beta: `Beta-0.3.2`
 
 This is a custom ranked client for the official September 2018 Subnautica speedrun build. It is not a generic mod pack and it is not built around BepInEx. The client is made specifically for the real September 2018 game files, with its own launcher, loader, runtime, UI layer, seed system, timer system, and future ranked support.
 
@@ -22,9 +22,14 @@ The game root also contains:
 - `winhttp.dll`
 - `.doorstop_version`
 - `doorstop_config.ini`
+- `Launch Ranked.cmd`
 - `Launch Ranked.lnk`
 
-`Launch Ranked.lnk` is only a shortcut. The real launcher is:
+`Launch Ranked.cmd` is the portable root launcher included in the release package.
+
+`Launch Ranked.lnk` is an optional Windows shortcut the client can create after launch.
+
+The real launcher is:
 
 - `SubnauticaSpeedrunningRanked\Launch Ranked.exe`
 
@@ -53,6 +58,7 @@ Your Subnautica Game Folder
 |- winhttp.dll
 |- .doorstop_version
 |- doorstop_config.ini
+|- Launch Ranked.cmd
 |- Launch Ranked.lnk
 \- SubnauticaSpeedrunningRanked
    |- Launch Ranked.exe
@@ -69,6 +75,7 @@ Your Subnautica Game Folder
 
 Players should launch the client with either:
 
+- `Launch Ranked.cmd`
 - `Launch Ranked.lnk`
 - `SubnauticaSpeedrunningRanked\Launch Ranked.exe`
 

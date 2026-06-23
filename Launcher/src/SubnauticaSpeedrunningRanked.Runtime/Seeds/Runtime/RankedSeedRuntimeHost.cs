@@ -111,14 +111,17 @@ namespace SubnauticaSpeedrunningRanked.Runtime.Seeds
 
         public static void UpdateSharedRuleState(string saveSlot, bool inMainMenu, bool continueMode)
         {
-            if (inMainMenu)
+            string normalizedSaveSlot = saveSlot ?? string.Empty;
+            if (inMainMenu ||
+                !normalizedSaveSlot.StartsWith("slot", StringComparison.OrdinalIgnoreCase) ||
+                !string.Equals(UnityEngine.SceneManagement.SceneManager.GetActiveScene().name, "Main", StringComparison.OrdinalIgnoreCase))
             {
                 RankedForceSecondGoldRuntime.Reset();
                 return;
             }
 
-            bool eligibleFreshRunState = IsSupportedGameplayMode() && !continueMode;
-            RankedForceSecondGoldRuntime.UpdateSessionState(saveSlot, eligibleFreshRunState);
+            bool eligibleFreshRunState = IsSurvivalLikeMode() && !continueMode;
+            RankedForceSecondGoldRuntime.UpdateSessionState(normalizedSaveSlot, eligibleFreshRunState);
         }
 
         public static bool TryResolveSeededFreshRunStartPoint(out Vector3 startPoint, out string description)

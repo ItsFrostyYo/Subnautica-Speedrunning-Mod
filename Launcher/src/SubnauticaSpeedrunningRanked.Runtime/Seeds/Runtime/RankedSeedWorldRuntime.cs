@@ -16,6 +16,10 @@ namespace SubnauticaSpeedrunningRanked.Runtime.Seeds
         private static float _nextStalkerObserverSweepAt;
         private static float _nextManualCreatureSweepAt;
         private static float _nextLootSweepAt;
+        private static int _lootIdleSweeps;
+        private static int _fishIdleSweeps;
+        private static int _stalkerObserverIdleSweeps;
+        private static int _creatureCullIdleSweeps;
         private static int _schoolObjectsSuppressed;
         private static bool _manualCreatureSpawnInProgress;
         private static bool _manualCreatureSpawnComplete;
@@ -42,14 +46,16 @@ namespace SubnauticaSpeedrunningRanked.Runtime.Seeds
 
             if (Time.unscaledTime >= _nextLootSweepAt)
             {
-                _nextLootSweepAt = Time.unscaledTime + 1f;
-                ApplyAlwaysOnLootDistributionRules(profile, includeSurvivalSeedGroups);
+                bool patchedLiveDistributions = ApplyAlwaysOnLootDistributionRules(profile, includeSurvivalSeedGroups);
+                _lootIdleSweeps = patchedLiveDistributions ? 0 : _lootIdleSweeps + 1;
+                _nextLootSweepAt = Time.unscaledTime + (_lootIdleSweeps >= 3 ? 10f : 1f);
             }
 
             if (inGame && profile.DisableFishSchools && Time.unscaledTime >= _nextFishSweepAt)
             {
-                _nextFishSweepAt = Time.unscaledTime + 1f;
-                SuppressFishSchools();
+                bool foundSchoolObjects = SuppressFishSchools();
+                _fishIdleSweeps = foundSchoolObjects ? 0 : _fishIdleSweeps + 1;
+                _nextFishSweepAt = Time.unscaledTime + (_fishIdleSweeps >= 2 ? 10f : 1f);
             }
 
             if (inGame &&
@@ -57,8 +63,9 @@ namespace SubnauticaSpeedrunningRanked.Runtime.Seeds
                 (profile.StalkerToothDropProbability > 0f || profile.RestrictStalkersToKelpForest) &&
                 Time.unscaledTime >= _nextStalkerObserverSweepAt)
             {
-                _nextStalkerObserverSweepAt = Time.unscaledTime + 2f;
-                EnsureStalkerObservers();
+                bool attachedObserver = EnsureStalkerObservers();
+                _stalkerObserverIdleSweeps = attachedObserver ? 0 : _stalkerObserverIdleSweeps + 1;
+                _nextStalkerObserverSweepAt = Time.unscaledTime + (_stalkerObserverIdleSweeps >= 2 ? 10f : 2f);
             }
 
             if (inGame && includeSurvivalSeedGroups && Time.unscaledTime >= _nextManualCreatureSweepAt)
@@ -71,8 +78,9 @@ namespace SubnauticaSpeedrunningRanked.Runtime.Seeds
                 (profile.BlockCreaturesInPrisonAquarium || profile.RestrictStalkersToKelpForest) &&
                 Time.unscaledTime >= _nextCreatureSweepAt)
             {
-                _nextCreatureSweepAt = Time.unscaledTime + 2f;
-                CullBlockedCreatures(profile);
+                bool removedCreature = CullBlockedCreatures(profile);
+                _creatureCullIdleSweeps = removedCreature ? 0 : _creatureCullIdleSweeps + 1;
+                _nextCreatureSweepAt = Time.unscaledTime + (_creatureCullIdleSweeps >= 2 ? 10f : 2f);
             }
         }
 
@@ -84,12 +92,16 @@ namespace SubnauticaSpeedrunningRanked.Runtime.Seeds
             _nextStalkerObserverSweepAt = 0f;
             _nextManualCreatureSweepAt = 0f;
             _nextLootSweepAt = 0f;
+            _lootIdleSweeps = 0;
+            _fishIdleSweeps = 0;
+            _stalkerObserverIdleSweeps = 0;
+            _creatureCullIdleSweeps = 0;
             _schoolObjectsSuppressed = 0;
             _manualCreatureSpawnInProgress = false;
             _manualCreatureSpawnComplete = false;
         }
 
-        private static void ApplyAlwaysOnLootDistributionRules(RankedSeedRuntimeProfile profile, bool includeSurvivalSeedGroups)
+        private static bool ApplyAlwaysOnLootDistributionRules(RankedSeedRuntimeProfile profile, bool includeSurvivalSeedGroups)
         {
             CSVEntitySpawner[] spawners = UnityEngine.Object.FindObjectsOfType<CSVEntitySpawner>();
             int patchedThisSweep = 0;
@@ -119,6 +131,8 @@ namespace SubnauticaSpeedrunningRanked.Runtime.Seeds
                     touchedBiomeEntries +
                     " biome probability entries.");
             }
+
+            return patchedThisSweep > 0;
         }
 
         private static LootDistributionData GetLootDistribution(CSVEntitySpawner spawner)
@@ -191,8 +205,9 @@ namespace SubnauticaSpeedrunningRanked.Runtime.Seeds
             return touchedEntries;
         }
 
-        private static void SuppressFishSchools()
+        private static bool SuppressFishSchools()
         {
+            bool foundSchoolObjects = false;
             VFXSchoolFishManager[] managers = UnityEngine.Object.FindObjectsOfType<VFXSchoolFishManager>();
             for (int i = 0; i < managers.Length; i++)
             {
@@ -202,6 +217,7 @@ namespace SubnauticaSpeedrunningRanked.Runtime.Seeds
                     continue;
                 }
 
+                foundSchoolObjects = true;
                 manager.enableAI = false;
                 manager.enableRepulsor = false;
                 manager.enablePlayerRepulse = false;
@@ -217,6 +233,7 @@ namespace SubnauticaSpeedrunningRanked.Runtime.Seeds
                     continue;
                 }
 
+                foundSchoolObjects = true;
                 if (school.meshRenderer != null)
                 {
                     school.meshRenderer.enabled = false;
@@ -239,6 +256,7 @@ namespace SubnauticaSpeedrunningRanked.Runtime.Seeds
                     continue;
                 }
 
+                foundSchoolObjects = true;
                 Renderer renderer = school.GetComponent<Renderer>();
                 if (renderer != null)
                 {
@@ -252,10 +270,13 @@ namespace SubnauticaSpeedrunningRanked.Runtime.Seeds
                     _schoolObjectsSuppressed++;
                 }
             }
+
+            return foundSchoolObjects;
         }
 
-        private static void EnsureStalkerObservers()
+        private static bool EnsureStalkerObservers()
         {
+            bool attachedObserver = false;
             Stalker[] stalkers = UnityEngine.Object.FindObjectsOfType<Stalker>();
             for (int i = 0; i < stalkers.Length; i++)
             {
@@ -269,8 +290,11 @@ namespace SubnauticaSpeedrunningRanked.Runtime.Seeds
                 if (observer == null)
                 {
                     stalker.gameObject.AddComponent<RankedStalkerRuntimeObserver>();
+                    attachedObserver = true;
                 }
             }
+
+            return attachedObserver;
         }
 
         private static void EnsureManualCreatureSpawns(RankedSeedRuntimeProfile profile)
@@ -415,9 +439,10 @@ namespace SubnauticaSpeedrunningRanked.Runtime.Seeds
             return count;
         }
 
-        private static void CullBlockedCreatures(RankedSeedRuntimeProfile profile)
+        private static bool CullBlockedCreatures(RankedSeedRuntimeProfile profile)
         {
             bool usesManualStalkerSpawns = RankedSeedRuntimeHost.IsSurvivalLikeMode() && profile.UsesManualCreatureSpawn(TechType.Stalker);
+            bool removedCreature = false;
             Creature[] creatures = UnityEngine.Object.FindObjectsOfType<Creature>();
             for (int i = 0; i < creatures.Length; i++)
             {
@@ -437,6 +462,7 @@ namespace SubnauticaSpeedrunningRanked.Runtime.Seeds
                 {
                     RankedLog.Info("Removed creature '" + creature.name + "' from prison aquarium biome '" + biome + "'.");
                     UnityEngine.Object.Destroy(creature.gameObject);
+                    removedCreature = true;
                     continue;
                 }
 
@@ -444,8 +470,11 @@ namespace SubnauticaSpeedrunningRanked.Runtime.Seeds
                 {
                     RankedLog.Info("Removed stalker outside kelp forest from biome '" + biome + "'.");
                     UnityEngine.Object.Destroy(creature.gameObject);
+                    removedCreature = true;
                 }
             }
+
+            return removedCreature;
         }
 
         private static bool IsProtectedCreature(Creature creature)

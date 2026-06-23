@@ -115,6 +115,19 @@ function New-LauncherShortcut {
     $shortcut.Save()
 }
 
+function Write-PortableRootLauncher {
+    param([string] $Path)
+
+    $content = @"
+@echo off
+setlocal
+cd /d "%~dp0"
+start "" "%~dp0SubnauticaSpeedrunningRanked\Launch Ranked.exe" %*
+"@
+
+    Set-Content -Path $Path -Value $content -Encoding ASCII
+}
+
 function Invoke-NativeCommand {
     param(
         [Parameter(Mandatory = $true)]
@@ -168,6 +181,8 @@ foreach ($file in $legacyRootLauncherFiles) {
     Remove-IfExists -Path (Join-Path $GameRoot $file)
 }
 
+Write-PortableRootLauncher -Path (Join-Path $GameRoot "Launch Ranked.cmd")
+
 $transportFiles = @("winhttp.dll", ".doorstop_version")
 foreach ($file in $transportFiles) {
     $source = Join-Path $TransportRoot $file
@@ -193,4 +208,4 @@ else {
 
 Write-Host "Published ranked loader to: $targetRankedRoot"
 Write-Host "Native transport source checked at: $TransportRoot"
-Write-Host "Run SubnauticaSpeedrunningRanked\\Launch Ranked.exe after install."
+Write-Host "Run Launch Ranked.cmd or SubnauticaSpeedrunningRanked\\Launch Ranked.exe after install."

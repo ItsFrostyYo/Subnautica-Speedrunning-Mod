@@ -232,7 +232,21 @@ namespace SubnauticaSpeedrunningRanked.Runtime.RunTracking
                 return;
             }
 
+            string activeSceneName = SceneManager.GetActiveScene().name;
+            bool isMainMenuScene =
+                string.Equals(activeSceneName, "XMenu", StringComparison.Ordinal) ||
+                uGUI_MainMenu.main != null;
+            if (isMainMenuScene)
+            {
+                return;
+            }
+
             GameMode mode = Utils.GetLegacyGameMode();
+            if (mode != GameMode.Creative && mode != GameMode.Survival && mode != GameMode.Hardcore)
+            {
+                return;
+            }
+
             bool seedEnsured = RankedSeedStore.EnsureSeedForSaveContext(saveSlot, mode, Utils.GetContinueMode());
             if (!seedEnsured && !RankedSeedStore.IsSeedContextActive(saveSlot, mode))
             {

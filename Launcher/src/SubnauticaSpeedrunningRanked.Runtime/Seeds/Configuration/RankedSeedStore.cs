@@ -136,15 +136,6 @@ namespace SubnauticaSpeedrunningRanked.Runtime.Seeds
                     createdSlotSeed = true;
                     consumedSharedSeed = true;
                 }
-                else if (!continueMode && File.Exists(slotSeedPath))
-                {
-                    slotSeed = LoadSeedFile(slotSeedPath, CreateSeedForSlot(saveSlot, mode, continueMode: false));
-                }
-                else if (!continueMode && File.Exists(legacySlotSeedPath))
-                {
-                    slotSeed = LoadSeedFile(legacySlotSeedPath, CreateSeedForSlot(saveSlot, mode, continueMode: false));
-                    SaveSeedFile(slotSeedPath, slotSeed);
-                }
                 else if (!continueMode)
                 {
                     slotSeed = CreateSeedForSlot(saveSlot, mode, continueMode: false);
