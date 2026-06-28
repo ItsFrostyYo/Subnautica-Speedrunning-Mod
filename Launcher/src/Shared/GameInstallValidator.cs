@@ -5,7 +5,7 @@ using System.IO;
 using System.Security.Cryptography;
 using System.Text;
 
-namespace SubnauticaSpeedrunningRanked.Shared
+namespace SubnauticaSpeedrunningMod.Shared
 {
     public sealed class GameInstallValidationReport
     {
@@ -43,7 +43,7 @@ namespace SubnauticaSpeedrunningRanked.Shared
         public string ToDiagnosticText()
         {
             StringBuilder builder = new StringBuilder();
-            builder.AppendLine("Subnautica Speedrunning Ranked Validation Report");
+            builder.AppendLine("Subnautica Speedrunning Mod Validation Report");
             builder.AppendLine("GeneratedAt=" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff"));
             builder.AppendLine("IsValid=" + IsValid);
             builder.AppendLine();
@@ -87,10 +87,10 @@ namespace SubnauticaSpeedrunningRanked.Shared
         public string ToUserFacingMessage()
         {
             StringBuilder builder = new StringBuilder();
-            builder.AppendLine("Subnautica Speedrunning Ranked cannot launch with this game install.");
+            builder.AppendLine("Subnautica Speedrunning Mod cannot launch with this game install.");
             builder.AppendLine();
             builder.AppendLine("Required version:");
-            builder.AppendLine(RankedCompatibilityProfile.RequiredVersionSummary);
+            builder.AppendLine(ModCompatibilityProfile.RequiredVersionSummary);
             builder.AppendLine();
 
             if (Errors.Count > 0)
@@ -114,7 +114,7 @@ namespace SubnauticaSpeedrunningRanked.Shared
         {
             GameInstallValidationReport report = new GameInstallValidationReport();
             report.SetObserved("GameRoot", gameRoot);
-            report.SetObserved("ExpectedVersion", RankedCompatibilityProfile.RequiredVersionSummary);
+            report.SetObserved("ExpectedVersion", ModCompatibilityProfile.RequiredVersionSummary);
 
             if (string.IsNullOrEmpty(gameRoot) || !Directory.Exists(gameRoot))
             {
@@ -150,9 +150,9 @@ namespace SubnauticaSpeedrunningRanked.Shared
             {
                 string buildNumber = File.ReadAllText(buildNumberPath).Trim();
                 report.SetObserved("BuildNumber", buildNumber);
-                if (!string.Equals(buildNumber, RankedCompatibilityProfile.RequiredBuildNumber, StringComparison.Ordinal))
+                if (!string.Equals(buildNumber, ModCompatibilityProfile.RequiredBuildNumber, StringComparison.Ordinal))
                 {
-                    report.AddError("Build number '" + buildNumber + "' does not match required build " + RankedCompatibilityProfile.RequiredBuildNumber + ".");
+                    report.AddError("Build number '" + buildNumber + "' does not match required build " + ModCompatibilityProfile.RequiredBuildNumber + ".");
                 }
             }
 
@@ -160,7 +160,7 @@ namespace SubnauticaSpeedrunningRanked.Shared
             {
                 string buildTime = File.ReadAllText(buildTimePath).Trim();
                 report.SetObserved("BuildTime", buildTime);
-                if (!string.Equals(buildTime, RankedCompatibilityProfile.RequiredBuildTime, StringComparison.Ordinal))
+                if (!string.Equals(buildTime, ModCompatibilityProfile.RequiredBuildTime, StringComparison.Ordinal))
                 {
                     report.AddError("Build time '" + buildTime + "' does not match the required September 2018 build.");
                 }
@@ -170,17 +170,17 @@ namespace SubnauticaSpeedrunningRanked.Shared
             {
                 FileVersionInfo version = FileVersionInfo.GetVersionInfo(subnauticaExePath);
                 report.SetObserved("SubnauticaExeFileVersion", version.FileVersion ?? string.Empty);
-                if (!string.Equals(version.FileVersion, RankedCompatibilityProfile.RequiredSubnauticaExeFileVersion, StringComparison.OrdinalIgnoreCase))
+                if (!string.Equals(version.FileVersion, ModCompatibilityProfile.RequiredSubnauticaExeFileVersion, StringComparison.OrdinalIgnoreCase))
                 {
-                    report.AddError("Subnautica.exe file version '" + version.FileVersion + "' does not match required version " + RankedCompatibilityProfile.RequiredSubnauticaExeFileVersion + ".");
+                    report.AddError("Subnautica.exe file version '" + version.FileVersion + "' does not match required version " + ModCompatibilityProfile.RequiredSubnauticaExeFileVersion + ".");
                 }
 
-                ValidateHash(report, subnauticaExePath, RankedCompatibilityProfile.RequiredSubnauticaExeSha256, "Subnautica.exe SHA256");
+                ValidateHash(report, subnauticaExePath, ModCompatibilityProfile.RequiredSubnauticaExeSha256, "Subnautica.exe SHA256");
             }
 
-            ValidateHash(report, subnauticaMonitorPath, RankedCompatibilityProfile.RequiredSubnauticaMonitorSha256, "SubnauticaMonitor.exe SHA256");
-            ValidateHash(report, assemblyCSharpPath, RankedCompatibilityProfile.RequiredAssemblyCSharpSha256, "Assembly-CSharp.dll SHA256");
-            ValidateHash(report, assemblyCSharpFirstpassPath, RankedCompatibilityProfile.RequiredAssemblyCSharpFirstpassSha256, "Assembly-CSharp-firstpass.dll SHA256");
+            ValidateHash(report, subnauticaMonitorPath, ModCompatibilityProfile.RequiredSubnauticaMonitorSha256, "SubnauticaMonitor.exe SHA256");
+            ValidateHash(report, assemblyCSharpPath, ModCompatibilityProfile.RequiredAssemblyCSharpSha256, "Assembly-CSharp.dll SHA256");
+            ValidateHash(report, assemblyCSharpFirstpassPath, ModCompatibilityProfile.RequiredAssemblyCSharpFirstpassSha256, "Assembly-CSharp-firstpass.dll SHA256");
 
             return report;
         }

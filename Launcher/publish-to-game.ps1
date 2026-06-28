@@ -1,24 +1,27 @@
 param(
     [string] $GameRoot = "",
     [string] $TransportRoot = "",
-    [switch] $BuildFirst,
-    [switch] $CreateShortcut
+    [switch] $BuildFirst
 )
 
 $ErrorActionPreference = "Stop"
 
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
-$distRoot = Join-Path $root "dist\SubnauticaSpeedrunningRanked"
-$launcherProject = Join-Path $root "src\SubnauticaSpeedrunningRanked.Launcher\SubnauticaSpeedrunningRanked.Launcher.csproj"
-$bootstrapProject = Join-Path $root "src\SubnauticaSpeedrunningRanked.Bootstrap\SubnauticaSpeedrunningRanked.Bootstrap.csproj"
-$runtimeProject = Join-Path $root "src\SubnauticaSpeedrunningRanked.Runtime\SubnauticaSpeedrunningRanked.Runtime.csproj"
-$updaterProject = Join-Path $root "src\SubnauticaSpeedrunningRanked.Updater\SubnauticaSpeedrunningRanked.Updater.csproj"
+$distRoot = Join-Path $root "dist\SubnauticaSpeedrunningMod"
+$launcherProject = Join-Path $root "src\SubnauticaSpeedrunningMod.Launcher\SubnauticaSpeedrunningMod.Launcher.csproj"
+$bootstrapProject = Join-Path $root "src\SubnauticaSpeedrunningMod.Bootstrap\SubnauticaSpeedrunningMod.Bootstrap.csproj"
+$runtimeProject = Join-Path $root "src\SubnauticaSpeedrunningMod.Runtime\SubnauticaSpeedrunningMod.Runtime.csproj"
+$updaterProject = Join-Path $root "src\SubnauticaSpeedrunningMod.Updater\SubnauticaSpeedrunningMod.Updater.csproj"
 $sharedSeedHelperScript = Join-Path $root "queue-shared-seed.ps1"
 $legacyRootLauncherFiles = @(
     "Launch Ranked.exe",
     "Launch Ranked.dll",
     "Launch Ranked.deps.json",
-    "Launch Ranked.runtimeconfig.json"
+    "Launch Ranked.runtimeconfig.json",
+    "Launch Mod.exe",
+    "Launch Mod.dll",
+    "Launch Mod.deps.json",
+    "Launch Mod.runtimeconfig.json"
 )
 
 function Ensure-Directory {
@@ -91,41 +94,35 @@ function Write-MissingOptionalFile {
     Write-Warning "Optional file not found: $Path"
 }
 
+function Write-DoorstopConfig {
+    param([string] $GameRoot)
+
+    $configPath = Join-Path $GameRoot "doorstop_config.ini"
+    $content = @"
+# Managed by Subnautica Speedrunning Mod Launcher
+[General]
+enabled = true
+target_assembly=SubnauticaSpeedrunningMod\Bootstrap\SubnauticaSpeedrunningMod.Bootstrap.dll
+redirect_output_log = false
+boot_config_override =
+ignore_disable_switch = false
+
+[UnityMono]
+dll_search_path_override =
+debug_enabled = false
+debug_address = 127.0.0.1:10000
+debug_suspend = false
+"@
+
+    Set-Content -Path $configPath -Value $content -Encoding ASCII
+}
+
 function Remove-IfExists {
     param([string] $Path)
 
     if (Test-Path $Path) {
         Remove-Item -LiteralPath $Path -Force
     }
-}
-
-function New-LauncherShortcut {
-    param(
-        [string] $ShortcutPath,
-        [string] $TargetPath,
-        [string] $WorkingDirectory
-    )
-
-    $shell = New-Object -ComObject WScript.Shell
-    $shortcut = $shell.CreateShortcut($ShortcutPath)
-    $shortcut.TargetPath = $TargetPath
-    $shortcut.WorkingDirectory = $WorkingDirectory
-    $shortcut.Description = "Launch Subnautica Speedrunning Ranked"
-    $shortcut.IconLocation = "$TargetPath,0"
-    $shortcut.Save()
-}
-
-function Write-PortableRootLauncher {
-    param([string] $Path)
-
-    $content = @"
-@echo off
-setlocal
-cd /d "%~dp0"
-start "" "%~dp0SubnauticaSpeedrunningRanked\Launch Ranked.exe" %*
-"@
-
-    Set-Content -Path $Path -Value $content -Encoding ASCII
 }
 
 function Invoke-NativeCommand {
@@ -170,18 +167,21 @@ Invoke-NativeCommand -FilePath dotnet -Arguments @("publish", $runtimeProject, "
 Invoke-NativeCommand -FilePath dotnet -Arguments @("publish", $updaterProject, "-c", "Release", "-o", (Join-Path $distRoot "Updater"))
 Copy-IfExists -Source $sharedSeedHelperScript -Destination (Join-Path $distRoot "queue-shared-seed.ps1")
 
-$targetRankedRoot = Join-Path $GameRoot "SubnauticaSpeedrunningRanked"
-Ensure-Directory $targetRankedRoot
+$legacyInstallRoot = Join-Path $GameRoot "SubnauticaSpeedrunningRanked"
+$targetModRoot = Join-Path $GameRoot "SubnauticaSpeedrunningMod"
+if (Test-Path $legacyInstallRoot) {
+    Remove-Item -LiteralPath $legacyInstallRoot -Recurse -Force
+}
+
+Ensure-Directory $targetModRoot
 
 Get-ChildItem -LiteralPath $distRoot -Force | ForEach-Object {
-    Copy-Item -LiteralPath $_.FullName -Destination $targetRankedRoot -Recurse -Force
+    Copy-Item -LiteralPath $_.FullName -Destination $targetModRoot -Recurse -Force
 }
 
 foreach ($file in $legacyRootLauncherFiles) {
     Remove-IfExists -Path (Join-Path $GameRoot $file)
 }
-
-Write-PortableRootLauncher -Path (Join-Path $GameRoot "Launch Ranked.cmd")
 
 $transportFiles = @("winhttp.dll", ".doorstop_version")
 foreach ($file in $transportFiles) {
@@ -195,17 +195,13 @@ foreach ($file in $transportFiles) {
     }
 }
 
-$shortcutPath = Join-Path $GameRoot "Launch Ranked.lnk"
-if ($CreateShortcut) {
-    $targetPath = Join-Path $targetRankedRoot "Launch Ranked.exe"
-    if (Test-Path $targetPath) {
-        New-LauncherShortcut -ShortcutPath $shortcutPath -TargetPath $targetPath -WorkingDirectory $targetRankedRoot
-    }
-}
-else {
-    Remove-IfExists -Path $shortcutPath
-}
+Write-DoorstopConfig -GameRoot $GameRoot
 
-Write-Host "Published ranked loader to: $targetRankedRoot"
+Remove-IfExists -Path (Join-Path $GameRoot "Launch Ranked.cmd")
+Remove-IfExists -Path (Join-Path $GameRoot "Launch Ranked.lnk")
+Remove-IfExists -Path (Join-Path $GameRoot "Launch Mod.cmd")
+Remove-IfExists -Path (Join-Path $GameRoot "Launch Mod.lnk")
+
+Write-Host "Published mod loader to: $targetModRoot"
 Write-Host "Native transport source checked at: $TransportRoot"
-Write-Host "Run Launch Ranked.cmd or SubnauticaSpeedrunningRanked\\Launch Ranked.exe after install."
+Write-Host "Run Subnautica.exe or SubnauticaSpeedrunningMod\\Launch Mod.exe after install."

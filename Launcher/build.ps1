@@ -1,7 +1,7 @@
 $ErrorActionPreference = "Stop"
 
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
-$solution = Join-Path $root "SubnauticaSpeedrunningRanked.sln"
+$solution = Join-Path $root "SubnauticaSpeedrunningMod.sln"
 
 function Invoke-NativeCommand {
     param(
