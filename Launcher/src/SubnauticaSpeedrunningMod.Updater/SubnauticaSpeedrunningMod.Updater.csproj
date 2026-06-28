@@ -7,6 +7,7 @@
     <Nullable>disable</Nullable>
     <AssemblyName>Mod Updater</AssemblyName>
     <RootNamespace>SubnauticaSpeedrunningMod.Updater</RootNamespace>
+    <ApplicationIcon>..\..\..\..\Subnautica September 2018 Stuff\Subnautica.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="..\Shared\ModClientRelease.cs" Link="Shared\ModClientRelease.cs" />

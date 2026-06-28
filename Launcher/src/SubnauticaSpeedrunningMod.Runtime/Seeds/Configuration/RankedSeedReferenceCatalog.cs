@@ -255,10 +255,10 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
                 new ModManualCreatureSpawnEntry
                 {
                     TechTypeName = "Stalker",
-                    UseSeedRange = true,
-                    Amount = 3,
+                    UseSeedRange = false,
+                    Amount = 2,
                     MinAmount = 2,
-                    MaxAmount = 4,
+                    MaxAmount = 2,
                     AmountStep = 1,
                     SpawnPoints = new List<ModSpawnPointDefinition>
                     {

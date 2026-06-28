@@ -9,9 +9,11 @@ $ErrorActionPreference = "Stop"
 
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $launcherRoot = Join-Path $root "Launcher"
+$installerRoot = Join-Path $root "Installer"
 $distRoot = Join-Path $launcherRoot "dist\SubnauticaSpeedrunningMod"
 $releaseRoot = Join-Path $root "release"
 $versionSourcePath = Join-Path $launcherRoot "src\Shared\ModClientRelease.cs"
+$installerPublishPath = Join-Path $installerRoot "dist\SubnauticaSpeedrunningModInstaller.exe"
 
 function Get-ClientReleaseVersion {
     param([string] $Path)
@@ -61,6 +63,7 @@ if (Test-Path $packageRoot) {
 }
 
 & (Join-Path $launcherRoot "publish-to-game.ps1") -GameRoot $packageRoot -TransportRoot $TransportRoot
+& (Join-Path $installerRoot "build.ps1")
 
 if (Test-Path $archivePath) {
     Remove-Item -LiteralPath $archivePath -Force
@@ -91,6 +94,7 @@ C:\Program Files (x86)\Steam\steamapps\common\Subnautica
 
 Set-Content -Path (Join-Path $packageRoot "INSTALL.txt") -Value $installNotes -Encoding UTF8
 Compress-Archive -Path (Join-Path $packageRoot "*") -DestinationPath $archivePath -Force
+Copy-Item -LiteralPath $installerPublishPath -Destination (Join-Path $releaseRoot "SubnauticaSpeedrunningModInstaller.exe") -Force
 
 $manifest = @"
 {

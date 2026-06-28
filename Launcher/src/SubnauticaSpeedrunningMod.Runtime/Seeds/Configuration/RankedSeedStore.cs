@@ -930,6 +930,11 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
                 changed = true;
             }
 
+            if (ModSeedReferenceCatalog.SyncCurrentManualCreatureSpawnEntries(seedDefinition.Survival.ManualCreatureSpawns))
+            {
+                changed = true;
+            }
+
             if (enforceCurrentDefaultAlwaysValues && isDefaultSeed)
             {
                 if (!MatchesAlwaysDefaults(seedDefinition.Survival.Always))

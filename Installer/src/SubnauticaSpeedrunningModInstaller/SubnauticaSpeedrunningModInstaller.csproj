@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>SubnauticaSpeedrunningModInstaller</AssemblyName>
+    <RootNamespace>SubnauticaSpeedrunningModInstaller</RootNamespace>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>..\..\..\..\Subnautica September 2018 Stuff\Subnautica.ico</ApplicationIcon>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="..\..\..\Launcher\src\Shared\GameInstallValidator.cs" Link="Shared\GameInstallValidator.cs" />
+    <Compile Include="..\..\..\Launcher\src\Shared\ModCompatibilityProfile.cs" Link="Shared\ModCompatibilityProfile.cs" />
+    <Compile Include="..\..\..\Launcher\src\Shared\ModClientRelease.cs" Link="Shared\ModClientRelease.cs" />
+  </ItemGroup>
+</Project>
