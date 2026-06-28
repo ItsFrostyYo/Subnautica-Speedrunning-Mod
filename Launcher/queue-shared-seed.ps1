@@ -9,8 +9,8 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-$rankedRoot = Join-Path $GameRoot "SubnauticaSpeedrunningRanked"
-$seedsRoot = Join-Path $rankedRoot "Data\Seeds"
+$modRoot = Join-Path $GameRoot "SubnauticaSpeedrunningMod"
+$seedsRoot = Join-Path $modRoot "Data\Seeds"
 $pendingPath = Join-Path $seedsRoot "pending-shared-seed.xml"
 
 if ([string]::IsNullOrWhiteSpace($SeedId)) {
@@ -25,12 +25,12 @@ New-Item -ItemType Directory -Path $seedsRoot -Force | Out-Null
 
 $xml = @"
 <?xml version="1.0" encoding="utf-8"?>
-<RankedPendingSharedSeed xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+<ModPendingSharedSeed xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
   <SeedId>$SeedId</SeedId>
   <SeedValue>$SeedValue</SeedValue>
   <GameMode>$Mode</GameMode>
   <Description>$Description</Description>
-</RankedPendingSharedSeed>
+</ModPendingSharedSeed>
 "@
 
 Set-Content -LiteralPath $pendingPath -Value $xml -Encoding UTF8

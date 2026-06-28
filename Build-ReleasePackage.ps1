@@ -9,9 +9,9 @@ $ErrorActionPreference = "Stop"
 
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $launcherRoot = Join-Path $root "Launcher"
-$distRoot = Join-Path $launcherRoot "dist\SubnauticaSpeedrunningRanked"
+$distRoot = Join-Path $launcherRoot "dist\SubnauticaSpeedrunningMod"
 $releaseRoot = Join-Path $root "release"
-$versionSourcePath = Join-Path $launcherRoot "src\Shared\RankedClientRelease.cs"
+$versionSourcePath = Join-Path $launcherRoot "src\Shared\ModClientRelease.cs"
 
 function Get-ClientReleaseVersion {
     param([string] $Path)
@@ -29,7 +29,7 @@ if ([string]::IsNullOrWhiteSpace($ReleaseVersion)) {
     $ReleaseVersion = Get-ClientReleaseVersion -Path $versionSourcePath
 }
 
-$ReleaseName = "SubnauticaSpeedrunningRanked-" + $ReleaseVersion
+$ReleaseName = "SubnauticaSpeedrunningMod-" + $ReleaseVersion
 $packageRoot = Join-Path $releaseRoot $ReleaseName
 $archivePath = Join-Path $releaseRoot ($ReleaseName + ".zip")
 $manifestPath = Join-Path $releaseRoot "latest.json"
@@ -51,19 +51,6 @@ function Copy-IfExists {
     }
 }
 
-function Write-PortableRootLauncher {
-    param([string] $Path)
-
-    $content = @"
-@echo off
-setlocal
-cd /d "%~dp0"
-start "" "%~dp0SubnauticaSpeedrunningRanked\Launch Ranked.exe" %*
-"@
-
-    Set-Content -Path $Path -Value $content -Encoding ASCII
-}
-
 if ($BuildFirst) {
     & (Join-Path $launcherRoot "build.ps1")
 }
@@ -74,7 +61,6 @@ if (Test-Path $packageRoot) {
 }
 
 & (Join-Path $launcherRoot "publish-to-game.ps1") -GameRoot $packageRoot -TransportRoot $TransportRoot
-Write-PortableRootLauncher -Path (Join-Path $packageRoot "Launch Ranked.cmd")
 
 if (Test-Path $archivePath) {
     Remove-Item -LiteralPath $archivePath -Force
@@ -86,18 +72,17 @@ if (-not $IncludeDebugSymbols) {
 }
 
 $installNotes = @"
-Subnautica Speedrunning Ranked Release
+Subnautica Speedrunning Mod Release
 =====================================
 
 1. Copy everything in this folder into the same folder as `Subnautica.exe`.
 2. Make sure Subnautica is fully closed first.
 3. Launch with:
-   - Launch Ranked.cmd
-   - SubnauticaSpeedrunningRanked\Launch Ranked.exe
-4. After the first launch, the client will create a Launch Ranked shortcut in the game root.
+   - Subnautica.exe
+   - SubnauticaSpeedrunningMod\Launch Mod.exe
 
 Update flow:
-- Replace existing ranked files with the new release contents.
+- Replace existing mod files with the new release contents.
 - Keep the folder structure exactly the same.
 
 Example game root:

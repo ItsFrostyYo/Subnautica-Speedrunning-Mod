@@ -20,3 +20,4 @@ release/*
 *.log
 Thumbs.db
 Desktop.ini
+/Docs/Platform

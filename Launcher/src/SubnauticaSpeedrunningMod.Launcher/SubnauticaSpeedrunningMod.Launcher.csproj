@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <AssemblyName>Launch Mod</AssemblyName>
+    <RootNamespace>SubnauticaSpeedrunningMod.Launcher</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="..\Shared\ModCompatibilityProfile.cs" Link="Shared\ModCompatibilityProfile.cs" />
+    <Compile Include="..\Shared\GameInstallValidator.cs" Link="Shared\GameInstallValidator.cs" />
+    <Compile Include="..\Shared\ModClientRelease.cs" Link="Shared\ModClientRelease.cs" />
+  </ItemGroup>
+</Project>
