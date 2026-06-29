@@ -102,7 +102,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
             }
         }
 
-        public static bool EnsureSeedForSaveContext(string saveSlot, GameMode mode, bool continueMode)
+        public static bool EnsureSeedForSaveContext(string saveSlot, GameMode mode, bool continueMode, bool createIfMissing)
         {
             lock (Sync)
             {
@@ -124,36 +124,42 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
                     return false;
                 }
 
-                string slotSeedPath = GetSlotSeedFilePath(saveSlot, mode);
-                string legacySlotSeedPath = GetLegacySlotSeedFilePath(saveSlot);
+                string slotSeedPath = string.Empty;
                 bool createdSlotSeed = false;
+                bool forceFreshSlotSeed = !continueMode && createIfMissing;
 
                 ModSeedDefinition slotSeed;
                 bool consumedSharedSeed = false;
-                if (!continueMode && TryConsumePendingSharedSeed(mode, saveSlot, out slotSeed))
+                if (forceFreshSlotSeed)
                 {
+                    DeleteExistingSlotSeedFiles(saveSlot);
+                }
+
+                if (forceFreshSlotSeed && TryConsumePendingSharedSeed(mode, saveSlot, out slotSeed))
+                {
+                    slotSeedPath = GetSlotSeedFilePath(saveSlot, slotSeed.SeedId);
                     SaveSeedFile(slotSeedPath, slotSeed);
                     createdSlotSeed = true;
                     consumedSharedSeed = true;
                 }
-                else if (!continueMode)
+                else if (forceFreshSlotSeed)
                 {
                     slotSeed = CreateSeedForSlot(saveSlot, mode, continueMode: false);
+                    slotSeedPath = GetSlotSeedFilePath(saveSlot, slotSeed.SeedId);
                     SaveSeedFile(slotSeedPath, slotSeed);
                     createdSlotSeed = true;
                 }
-                else if (File.Exists(slotSeedPath))
+                else if (TryLoadExistingSlotSeed(saveSlot, mode, continueMode, out slotSeed, out slotSeedPath))
                 {
-                    slotSeed = LoadSeedFile(slotSeedPath, CreateSeedForSlot(saveSlot, mode, continueMode));
                 }
-                else if (File.Exists(legacySlotSeedPath))
+                else if (!createIfMissing)
                 {
-                    slotSeed = LoadSeedFile(legacySlotSeedPath, CreateSeedForSlot(saveSlot, mode, continueMode));
-                    SaveSeedFile(slotSeedPath, slotSeed);
+                    return false;
                 }
                 else
                 {
                     slotSeed = CreateSeedForSlot(saveSlot, mode, continueMode);
+                    slotSeedPath = GetSlotSeedFilePath(saveSlot, slotSeed.SeedId);
                     SaveSeedFile(slotSeedPath, slotSeed);
                     createdSlotSeed = true;
                 }
@@ -214,6 +220,52 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
             }
         }
 
+        public static bool HasActiveSeedAssignment()
+        {
+            lock (Sync)
+            {
+                return _initialized &&
+                    !string.IsNullOrEmpty(_activeAssignedSlot) &&
+                    _activeAssignedMode != GameMode.None;
+            }
+        }
+
+        public static bool IsBetterRngSeedActive()
+        {
+            lock (Sync)
+            {
+                return _initialized &&
+                    !string.IsNullOrEmpty(_activeAssignedSlot) &&
+                    _activeAssignedMode != GameMode.None &&
+                    IsBetterRngSeedId(_activeSeed == null ? string.Empty : _activeSeed.SeedId);
+            }
+        }
+
+        public static bool TryPeekAssignedSeedId(string saveSlot, GameMode mode, out string seedId)
+        {
+            lock (Sync)
+            {
+                seedId = string.Empty;
+
+                if (!_initialized || string.IsNullOrEmpty(saveSlot) || !IsRealSaveSlot(saveSlot) || !IsSupportedSeedMode(mode))
+                {
+                    return false;
+                }
+
+                ModSeedDefinition seedDefinition;
+                string seedPath;
+                if (!TryLoadExistingSlotSeed(saveSlot, mode, continueMode: true, out seedDefinition, out seedPath))
+                {
+                    return false;
+                }
+
+                seedId = seedDefinition == null || string.IsNullOrEmpty(seedDefinition.SeedId)
+                    ? string.Empty
+                    : seedDefinition.SeedId;
+                return !string.IsNullOrEmpty(seedId);
+            }
+        }
+
         public static bool QueueSharedSeed(GameMode mode, string seedId, string seedValue, string description)
         {
             lock (Sync)
@@ -225,7 +277,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
 
                 ModPendingSharedSeedDefinition assignment = new ModPendingSharedSeedDefinition
                 {
-                    SeedId = string.IsNullOrEmpty(seedId) ? GetSeedIdForMode(mode) : seedId,
+                    SeedId = string.IsNullOrEmpty(seedId) ? GetSeedIdForMode(mode, ModSeedVariantKind.RankedSingleplayer) : seedId,
                     SeedValue = seedValue,
                     GameMode = mode.ToString(),
                     Description = string.IsNullOrEmpty(description) ? "Queued shared seed." : description
@@ -344,14 +396,31 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
                 : _activeSeed.SeedValue;
         }
 
+        public static bool IsBetterRngSeedId(string seedId)
+        {
+            return !string.IsNullOrEmpty(seedId) &&
+                seedId.StartsWith("BetterRNG-", StringComparison.OrdinalIgnoreCase);
+        }
+
         private static ModSeedDefinition CreateSeedForSlot(string saveSlot, GameMode mode, bool continueMode)
         {
+            ModSeedVariantKind variant = ResolveCreationVariant();
             ModSeedDefinition seedDefinition = ModSeedDefinition.CreateDefaultActiveSeed();
-            seedDefinition.SeedId = GetSeedIdForMode(mode);
+            seedDefinition.SeedId = GetSeedIdForMode(mode, variant);
             seedDefinition.SeedValue = BuildSeedValue(saveSlot, mode, continueMode);
-            seedDefinition.Description = (continueMode ? "Migrated" : "Generated") + " " + mode + " seed for save slot '" + saveSlot + "'.";
+            seedDefinition.Description =
+                (continueMode ? "Migrated" : "Generated") + " " +
+                (variant == ModSeedVariantKind.BetterRng ? "BetterRNG " : string.Empty) +
+                mode +
+                " seed for save slot '" +
+                saveSlot +
+                "'.";
             seedDefinition.Creative = ModCreativeSeedDefinition.CreateDefault();
             seedDefinition.Survival = ModSurvivalSeedDefinition.CreateTemplate();
+            if (IsBetterRngSeedId(seedDefinition.SeedId) && seedDefinition.Survival.Defaults != null)
+            {
+                seedDefinition.Survival.Defaults.StalkerBitesDropTeeth = true;
+            }
             seedDefinition.Normalize();
             return seedDefinition;
         }
@@ -359,7 +428,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
         private static ModSeedDefinition CreateSharedSeedForSlot(string saveSlot, GameMode mode, ModPendingSharedSeedDefinition assignment)
         {
             ModSeedDefinition seedDefinition = ModSeedDefinition.CreateDefaultActiveSeed();
-            seedDefinition.SeedId = string.IsNullOrEmpty(assignment.SeedId) ? GetSeedIdForMode(mode) : assignment.SeedId;
+            seedDefinition.SeedId = string.IsNullOrEmpty(assignment.SeedId) ? GetSeedIdForMode(mode, ModSeedVariantKind.RankedSingleplayer) : assignment.SeedId;
             seedDefinition.SeedValue = assignment.SeedValue;
             seedDefinition.Description = string.IsNullOrEmpty(assignment.Description)
                 ? "Shared " + mode + " seed for save slot '" + saveSlot + "'."
@@ -380,17 +449,18 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
             return modeToken + "-" + stateToken + "-" + slotToken + "-" + timestampToken + "-" + uniqueToken;
         }
 
-        private static string GetSeedIdForMode(GameMode mode)
+        private static string GetSeedIdForMode(GameMode mode, ModSeedVariantKind variant)
         {
+            string prefix = variant == ModSeedVariantKind.BetterRng ? "BetterRNG-" : string.Empty;
             switch (mode)
             {
                 case GameMode.Creative:
-                    return "Creative-Singleplayer";
+                    return prefix + "Creative-Singleplayer";
                 case GameMode.Hardcore:
-                    return "Hardcore-Singleplayer";
+                    return prefix + "Hardcore-Singleplayer";
                 case GameMode.Survival:
                 default:
-                    return "Survival-Singleplayer";
+                    return prefix + "Survival-Singleplayer";
             }
         }
 
@@ -418,16 +488,137 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
             return builder.Length == 0 ? "slot" : builder.ToString();
         }
 
-        private static string GetSlotSeedFilePath(string saveSlot, GameMode mode)
+        private static string GetSlotSeedFilePath(string saveSlot, string seedId)
         {
             return Path.Combine(
                 _assignedSlotsDirectoryPath,
-                SanitizeToken(saveSlot) + "__" + SanitizeToken(GetSeedIdForMode(mode)) + ".xml");
+                SanitizeToken(saveSlot) + "__" + SanitizeToken(seedId) + ".xml");
         }
 
         private static string GetLegacySlotSeedFilePath(string saveSlot)
         {
             return Path.Combine(_assignedSlotsDirectoryPath, SanitizeToken(saveSlot) + ".xml");
+        }
+
+        private static bool TryLoadExistingSlotSeed(string saveSlot, GameMode mode, bool continueMode, out ModSeedDefinition seedDefinition, out string seedPath)
+        {
+            seedDefinition = null;
+            seedPath = string.Empty;
+
+            string resolvedSeedPath;
+            if (TryResolveExistingSlotSeedPath(saveSlot, mode, out resolvedSeedPath))
+            {
+                seedPath = resolvedSeedPath;
+                seedDefinition = LoadSeedFile(seedPath, CreateSeedForSlot(saveSlot, mode, continueMode));
+                return true;
+            }
+
+            string legacySlotSeedPath = GetLegacySlotSeedFilePath(saveSlot);
+            if (File.Exists(legacySlotSeedPath))
+            {
+                seedDefinition = LoadSeedFile(legacySlotSeedPath, CreateSeedForSlot(saveSlot, mode, continueMode));
+                seedPath = GetSlotSeedFilePath(saveSlot, seedDefinition.SeedId);
+                SaveSeedFile(seedPath, seedDefinition);
+                return true;
+            }
+
+            return false;
+        }
+
+        private static bool TryResolveExistingSlotSeedPath(string saveSlot, GameMode mode, out string seedPath)
+        {
+            seedPath = string.Empty;
+
+            string slotToken = SanitizeToken(saveSlot);
+            string[] exactSeedIds =
+            {
+                GetSeedIdForMode(mode, ModSeedVariantKind.RankedSingleplayer),
+                GetSeedIdForMode(mode, ModSeedVariantKind.BetterRng)
+            };
+
+            for (int i = 0; i < exactSeedIds.Length; i++)
+            {
+                string exactPath = GetSlotSeedFilePath(saveSlot, exactSeedIds[i]);
+                if (File.Exists(exactPath))
+                {
+                    seedPath = exactPath;
+                    return true;
+                }
+            }
+
+            string[] matchingFiles = Directory.GetFiles(_assignedSlotsDirectoryPath, slotToken + "__*.xml");
+            for (int i = 0; i < matchingFiles.Length; i++)
+            {
+                string candidatePath = matchingFiles[i];
+                ModSeedDefinition candidateSeed = LoadSeedFile(candidatePath, null);
+                if (candidateSeed == null)
+                {
+                    continue;
+                }
+
+                candidateSeed.Normalize();
+                if (DoesSeedIdMatchMode(candidateSeed.SeedId, mode))
+                {
+                    seedPath = candidatePath;
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool DoesSeedIdMatchMode(string seedId, GameMode mode)
+        {
+            string expectedSuffix = GetSeedIdForMode(mode, ModSeedVariantKind.RankedSingleplayer);
+            string betterRngExpectedSuffix = GetSeedIdForMode(mode, ModSeedVariantKind.BetterRng);
+
+            return string.Equals(seedId, expectedSuffix, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(seedId, betterRngExpectedSuffix, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static ModSeedVariantKind ResolveCreationVariant()
+        {
+            return ModClientSessionMode.IsBetterRngSingleplayerSelected
+                ? ModSeedVariantKind.BetterRng
+                : ModSeedVariantKind.RankedSingleplayer;
+        }
+
+        private static void DeleteExistingSlotSeedFiles(string saveSlot)
+        {
+            if (string.IsNullOrEmpty(saveSlot) || !Directory.Exists(_assignedSlotsDirectoryPath))
+            {
+                return;
+            }
+
+            string slotToken = SanitizeToken(saveSlot);
+            string[] matchingFiles = Directory.GetFiles(_assignedSlotsDirectoryPath, slotToken + "__*.xml");
+            for (int i = 0; i < matchingFiles.Length; i++)
+            {
+                string path = matchingFiles[i];
+                try
+                {
+                    File.Delete(path);
+                    ModLog.Info("Deleted stale slot seed file '" + Path.GetFileName(path) + "' before creating a fresh modded save seed.");
+                }
+                catch (Exception ex)
+                {
+                    ModLog.Warn("Failed to delete stale slot seed file '" + path + "': " + ex.Message);
+                }
+            }
+
+            string legacyPath = GetLegacySlotSeedFilePath(saveSlot);
+            if (!string.IsNullOrEmpty(legacyPath) && File.Exists(legacyPath))
+            {
+                try
+                {
+                    File.Delete(legacyPath);
+                    ModLog.Info("Deleted stale legacy slot seed file '" + Path.GetFileName(legacyPath) + "' before creating a fresh modded save seed.");
+                }
+                catch (Exception ex)
+                {
+                    ModLog.Warn("Failed to delete stale legacy slot seed file '" + legacyPath + "': " + ex.Message);
+                }
+            }
         }
 
         private static void SetActiveSeed(ModSeedDefinition seedDefinition)
@@ -482,7 +673,11 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
             catch (Exception ex)
             {
                 ModLog.Error("Failed to load seed file at '" + path + "'. Falling back to defaults.", ex);
-                fallback.Normalize();
+                if (fallback != null)
+                {
+                    fallback.Normalize();
+                }
+
                 return fallback;
             }
         }
@@ -1120,6 +1315,12 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
         {
             return string.Equals(seedId, ModSeedDefinition.DefaultActiveSeedId, StringComparison.OrdinalIgnoreCase) ||
                    string.Equals(seedId, ModSeedDefinition.LegacyDefaultActiveSeedId, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private enum ModSeedVariantKind
+        {
+            RankedSingleplayer,
+            BetterRng
         }
     }
 }

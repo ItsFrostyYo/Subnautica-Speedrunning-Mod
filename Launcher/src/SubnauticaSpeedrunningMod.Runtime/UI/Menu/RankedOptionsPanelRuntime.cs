@@ -50,20 +50,13 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
                 _loggedForCurrentPanel = false;
             }
 
-            int accountTabIndex = EnsureTab(panel, AccountTabLabel, out bool addedAccountTab);
-            int modSettingsTabIndex = EnsureTab(panel, ModSettingsTabLabel, out bool addedRankedSettingsTab);
-            bool addedAccountPlaceholder = EnsurePlaceholderContent(panel, accountTabIndex, AccountPlaceholderObjectName);
-            bool addedRankedSettingsPlaceholder = EnsurePlaceholderContent(panel, modSettingsTabIndex, ModSettingsPlaceholderObjectName);
-
-            if ((addedAccountTab ||
-                 addedRankedSettingsTab ||
-                 addedAccountPlaceholder ||
-                 addedRankedSettingsPlaceholder ||
-                 !_loggedForCurrentPanel) &&
-                HasTab(panel, AccountTabLabel) &&
-                HasTab(panel, ModSettingsTabLabel))
+            bool removedAccountTab = RemoveCustomTab(panel, AccountTabLabel);
+            bool removedRankedSettingsTab = RemoveCustomTab(panel, ModSettingsTabLabel);
+            if ((removedAccountTab || removedRankedSettingsTab || !_loggedForCurrentPanel) &&
+                !HasTab(panel, AccountTabLabel) &&
+                !HasTab(panel, ModSettingsTabLabel))
             {
-                ModLog.Info("Patched main menu options tabs with Account and Ranked Settings.");
+                ModLog.Info("Temporarily removed Account and Ranked Settings tabs from the main menu options panel.");
                 _loggedForCurrentPanel = true;
             }
 
@@ -78,6 +71,35 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
             }
 
             SyncVisiblePane(panel);
+        }
+
+        private static bool RemoveCustomTab(uGUI_OptionsPanel panel, string label)
+        {
+            int tabIndex = GetTabIndex(panel, label);
+            if (tabIndex < 0)
+            {
+                return false;
+            }
+
+            if (panel.tabsContainer != null && tabIndex < panel.tabsContainer.childCount)
+            {
+                Transform tabTransform = panel.tabsContainer.GetChild(tabIndex);
+                if (tabTransform != null)
+                {
+                    UnityEngine.Object.Destroy(tabTransform.gameObject);
+                }
+            }
+
+            if (panel.panesContainer != null && tabIndex < panel.panesContainer.childCount)
+            {
+                Transform paneTransform = panel.panesContainer.GetChild(tabIndex);
+                if (paneTransform != null)
+                {
+                    UnityEngine.Object.Destroy(paneTransform.gameObject);
+                }
+            }
+
+            return true;
         }
 
         private static int EnsureTab(uGUI_OptionsPanel panel, string label, out bool wasAdded)

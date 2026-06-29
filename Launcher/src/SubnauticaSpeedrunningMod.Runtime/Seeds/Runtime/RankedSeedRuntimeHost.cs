@@ -11,6 +11,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
         private static bool _fishSchoolHookInstalled;
         private static bool _stalkerToothHookInstalled;
         private static bool _lootDistributionHookInstalled;
+        private static bool _betterRngHookInstalled;
 
         public static void Install(RuntimeContext context)
         {
@@ -26,6 +27,21 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
         public static ModSeedRuntimeProfile GetProfile()
         {
             return ModSeedStore.GetActiveProfile();
+        }
+
+        public static bool HasActiveSeedAssignment()
+        {
+            return ModSeedStore.HasActiveSeedAssignment();
+        }
+
+        public static bool IsBetterRngSeedActive()
+        {
+            return ModSeedStore.IsBetterRngSeedActive();
+        }
+
+        public static bool IsRankedSingleplayerSeedActive()
+        {
+            return HasActiveSeedAssignment() && !IsBetterRngSeedActive();
         }
 
         public static bool IsSupportedGameplayMode()
@@ -99,11 +115,15 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
             }
 
             _startupHooksInstallAttempted = true;
+            _betterRngHookInstalled = ModBetterRngRuntimeHost.EnsureInstalled();
             bool forceSecondGoldInstalled = ModForceSecondGoldRuntime.EnsureInstalled();
             _fishSchoolHookInstalled = ModFishSchoolHookRuntime.EnsureInstalled();
             _stalkerToothHookInstalled = ModStalkerToothHookRuntime.EnsureInstalled();
             ModLog.Info(
                 "Initialized legacy BepInEx Harmony seed support. " +
+                "BetterRngHooksInstalled=" +
+                _betterRngHookInstalled +
+                ", " +
                 "ForceSecondGoldInstalled=" +
                 forceSecondGoldInstalled +
                 ", FishSchoolHooksInstalled=" +
@@ -118,7 +138,8 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
             string normalizedSaveSlot = saveSlot ?? string.Empty;
             if (inMainMenu ||
                 !normalizedSaveSlot.StartsWith("slot", StringComparison.OrdinalIgnoreCase) ||
-                !string.Equals(UnityEngine.SceneManagement.SceneManager.GetActiveScene().name, "Main", StringComparison.OrdinalIgnoreCase))
+                !string.Equals(UnityEngine.SceneManagement.SceneManager.GetActiveScene().name, "Main", StringComparison.OrdinalIgnoreCase) ||
+                !ShouldApplyAnyModdedSeedRules())
             {
                 ModForceSecondGoldRuntime.Reset();
                 return;
@@ -144,13 +165,18 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
                 return false;
             }
 
+            if (ShouldApplyBetterRngRules())
+            {
+                return false;
+            }
+
             string saveSlot = Utils.GetSavegameDir() ?? string.Empty;
             if (string.IsNullOrEmpty(saveSlot))
             {
                 return false;
             }
 
-            ModSeedStore.EnsureSeedForSaveContext(saveSlot, mode, continueMode: false);
+            ModSeedStore.EnsureSeedForSaveContext(saveSlot, mode, continueMode: false, createIfMissing: true);
             if (!ModSeedStore.IsSeedContextActive(saveSlot, mode))
             {
                 return false;
@@ -190,6 +216,67 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
                 _lootDistributionHookInstalled +
                 ", ForceSecondGold=StartupPatch" +
                 ".");
+        }
+
+        public static bool ShouldApplyAnyModdedSeedRules()
+        {
+            return ShouldApplyRankedSingleplayerRules() || ShouldApplyBetterRngRules();
+        }
+
+        public static bool ShouldApplyRankedSingleplayerRules()
+        {
+            if (!IsSupportedGameplayMode())
+            {
+                return false;
+            }
+
+            if (HasActiveSeedAssignment())
+            {
+                return IsRankedSingleplayerSeedActive();
+            }
+
+            return ModClientSessionMode.IsRankedSingleplayerPracticeSelected && !Utils.GetContinueMode();
+        }
+
+        public static bool ShouldApplyBetterRngRules()
+        {
+            if (!IsSupportedGameplayMode())
+            {
+                return false;
+            }
+
+            if (HasActiveSeedAssignment())
+            {
+                return IsBetterRngSeedActive();
+            }
+
+            if (ModClientSessionMode.IsBetterRngSingleplayerSelected && !Utils.GetContinueMode())
+            {
+                return true;
+            }
+
+            string saveSlot = Utils.GetSavegameDir() ?? string.Empty;
+            if (string.IsNullOrEmpty(saveSlot))
+            {
+                return false;
+            }
+
+            string sceneName = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
+            if (string.Equals(sceneName, "XMenu", StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            GameMode mode = Utils.GetLegacyGameMode();
+            string seedId;
+            return IsSupportedSeedMode(mode) &&
+                ModSeedStore.TryPeekAssignedSeedId(saveSlot, mode, out seedId) &&
+                ModSeedStore.IsBetterRngSeedId(seedId);
+        }
+
+        private static bool IsSupportedSeedMode(GameMode mode)
+        {
+            return mode == GameMode.Creative || mode == GameMode.Survival || mode == GameMode.Hardcore;
         }
     }
 }
