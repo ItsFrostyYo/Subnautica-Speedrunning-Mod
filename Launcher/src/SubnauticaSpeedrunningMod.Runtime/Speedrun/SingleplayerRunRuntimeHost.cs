@@ -4,6 +4,7 @@ using System.Reflection;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using SubnauticaSpeedrunningMod.Runtime;
+using SubnauticaSpeedrunningMod.Runtime.Practice;
 using SubnauticaSpeedrunningMod.Runtime.Seeds;
 using SubnauticaSpeedrunningMod.Runtime.Ui;
 
@@ -115,10 +116,12 @@ namespace SubnauticaSpeedrunningMod.Runtime.RunTracking
         private static void OnRuntimeUpdate()
         {
             UpdateSaveContext();
+            ModPracticeSaveProtectionRuntime.EnsureInstalled();
             ModSeedRuntimeHost.EnsureStartupHooksInstalled();
             RefreshActiveSeedForSaveContext();
             bool rankedPracticeActive = ModSeedRuntimeHost.IsRankedSingleplayerSeedActive();
             bool betterRngTimedActive = IsBetterRngTimedRunActive();
+            bool practiceSaveTimedActive = IsPracticeSaveTimedRunActive();
             UpdateDeathLoadingState();
             UpdateGameplayState();
             ModSeedRuntimeHost.UpdateSharedRuleState(
@@ -145,7 +148,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.RunTracking
                 return;
             }
 
-            if (!rankedPracticeActive && !betterRngTimedActive)
+            if (!rankedPracticeActive && !betterRngTimedActive && !practiceSaveTimedActive)
             {
                 ResetMenuOnlyPollingState();
                 ModOverlayRuntime.SetTimer(FormatTimer(0d), false);
@@ -392,12 +395,15 @@ namespace SubnauticaSpeedrunningMod.Runtime.RunTracking
             }
 
             bool betterRngTimedRun = IsBetterRngTimedRunActive();
+            bool practiceSaveTimedRun = IsPracticeSaveTimedRunActive();
             if (_timerRunning && !_timerCompleted)
             {
                 _realTimeElapsedSeconds += Time.unscaledDeltaTime;
 
                 bool shouldPauseDisplayedTimer = betterRngTimedRun
                     ? (_portalLoading && _portalLoadCount > 1)
+                    : practiceSaveTimedRun
+                        ? (_portalLoading || _deathLoading)
                     : (_portalLoading || _deathLoading);
                 if (!shouldPauseDisplayedTimer)
                 {
@@ -428,6 +434,9 @@ namespace SubnauticaSpeedrunningMod.Runtime.RunTracking
             {
                 case ModSingleplayerRunMode.Creative:
                     UpdateCreativeTimerLifecycle();
+                    break;
+                case ModSingleplayerRunMode.Practice:
+                    UpdatePracticeSaveTimerLifecycle();
                     break;
                 case ModSingleplayerRunMode.Survival:
                 case ModSingleplayerRunMode.Hardcore:
@@ -475,6 +484,38 @@ namespace SubnauticaSpeedrunningMod.Runtime.RunTracking
                     _timerRunning = true;
                     _verificationVisible = false;
                     ModLog.Info("Speedrun timer started due to " + startReason + ".");
+                }
+            }
+        }
+
+        private static void UpdatePracticeSaveTimerLifecycle()
+        {
+            if (!ShouldArmPracticeSaveTimer())
+            {
+                if (!_timerRunning)
+                {
+                    _timerArmed = false;
+                    _elapsedSeconds = 0d;
+                    _realTimeElapsedSeconds = 0d;
+                }
+
+                return;
+            }
+
+            if (!_timerArmed)
+            {
+                _timerArmed = true;
+                ModLog.Info("Speedrun timer armed for practice save '" + ModClientSessionMode.PracticeSaveId + "'.");
+            }
+
+            if (_timerArmed && !_timerRunning)
+            {
+                string startReason;
+                if (TryGetCreativeTimerStartReason(out startReason))
+                {
+                    _timerRunning = true;
+                    _verificationVisible = false;
+                    ModLog.Info("Practice save timer started due to " + startReason + ".");
                 }
             }
         }
@@ -591,6 +632,32 @@ namespace SubnauticaSpeedrunningMod.Runtime.RunTracking
             }
 
             return Player.main.currentEscapePod != null;
+        }
+
+        private static bool ShouldArmPracticeSaveTimer()
+        {
+            if (Player.main == null)
+            {
+                return false;
+            }
+
+            if (!ModClientSessionMode.IsPracticeSaveTimerEnabled)
+            {
+                return false;
+            }
+
+            GameMode mode = Utils.GetLegacyGameMode();
+            if (mode != GameMode.Survival && mode != GameMode.Hardcore)
+            {
+                return false;
+            }
+
+            if (_state != ModGameStateKind.InGame)
+            {
+                return false;
+            }
+
+            return true;
         }
 
         private static bool TryGetCreativeTimerStartReason(out string reason)
@@ -919,7 +986,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.RunTracking
 
         private static bool ShouldShowRunStatus()
         {
-            if (IsBetterRngTimedRunActive())
+            if (IsBetterRngTimedRunActive() || IsPracticeSaveTimedRunActive())
             {
                 return false;
             }
@@ -958,7 +1025,8 @@ namespace SubnauticaSpeedrunningMod.Runtime.RunTracking
         {
             bool rankedPracticeActive = ModSeedRuntimeHost.IsRankedSingleplayerSeedActive();
             bool betterRngTimedActive = IsBetterRngTimedRunActive();
-            if (!rankedPracticeActive && !betterRngTimedActive)
+            bool practiceSaveTimedActive = IsPracticeSaveTimedRunActive();
+            if (!rankedPracticeActive && !betterRngTimedActive && !practiceSaveTimedActive)
             {
                 return ModSingleplayerRunMode.None;
             }
@@ -968,7 +1036,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.RunTracking
                 return ModSingleplayerRunMode.None;
             }
 
-            if (Utils.GetContinueMode())
+            if (Utils.GetContinueMode() && !practiceSaveTimedActive)
             {
                 return ModSingleplayerRunMode.None;
             }
@@ -981,8 +1049,18 @@ namespace SubnauticaSpeedrunningMod.Runtime.RunTracking
                         ? ModSingleplayerRunMode.Creative
                         : ModSingleplayerRunMode.None;
                 case GameMode.Survival:
+                    if (practiceSaveTimedActive)
+                    {
+                        return ModSingleplayerRunMode.Practice;
+                    }
+
                     return ModSingleplayerRunMode.Survival;
                 case GameMode.Hardcore:
+                    if (practiceSaveTimedActive)
+                    {
+                        return ModSingleplayerRunMode.Practice;
+                    }
+
                     return ModSingleplayerRunMode.Hardcore;
                 default:
                     return ModSingleplayerRunMode.None;
@@ -1001,7 +1079,18 @@ namespace SubnauticaSpeedrunningMod.Runtime.RunTracking
                 return false;
             }
 
-            if (Utils.GetContinueMode())
+            GameMode mode = Utils.GetLegacyGameMode();
+            return mode == GameMode.Survival || mode == GameMode.Hardcore;
+        }
+
+        private static bool IsPracticeSaveTimedRunActive()
+        {
+            if (!ModClientSessionMode.IsPracticeSaveTimerEnabled)
+            {
+                return false;
+            }
+
+            if (_state == ModGameStateKind.Booting || _state == ModGameStateKind.MainMenu)
             {
                 return false;
             }
@@ -1016,6 +1105,8 @@ namespace SubnauticaSpeedrunningMod.Runtime.RunTracking
             {
                 case ModSingleplayerRunMode.Creative:
                     return "Creative";
+                case ModSingleplayerRunMode.Practice:
+                    return "Practice";
                 case ModSingleplayerRunMode.Survival:
                     return "Survival";
                 case ModSingleplayerRunMode.Hardcore:
@@ -1306,6 +1397,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.RunTracking
         {
             None,
             Creative,
+            Practice,
             Survival,
             Hardcore
         }

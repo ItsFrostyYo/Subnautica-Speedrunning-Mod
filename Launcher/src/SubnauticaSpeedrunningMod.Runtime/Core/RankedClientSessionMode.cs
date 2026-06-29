@@ -5,12 +5,16 @@ namespace SubnauticaSpeedrunningMod.Runtime
         Vanilla,
         ModMultiplayer,
         ModSingleplayerPractice,
-        ModBetterRngSingleplayer
+        ModBetterRngSingleplayer,
+        ModPracticeSave
     }
 
     internal static class ModClientSessionMode
     {
         private static ModClientLaunchMode _launchMode = ModClientLaunchMode.Vanilla;
+        private static string _practiceCategory = string.Empty;
+        private static string _practiceSaveId = string.Empty;
+        private static bool _practiceSaveTimerEnabled;
 
         public static ModClientLaunchMode LaunchMode
         {
@@ -27,29 +31,69 @@ namespace SubnauticaSpeedrunningMod.Runtime
             get { return _launchMode == ModClientLaunchMode.ModBetterRngSingleplayer; }
         }
 
+        public static bool IsPracticeSaveSelected
+        {
+            get { return _launchMode == ModClientLaunchMode.ModPracticeSave && !string.IsNullOrEmpty(_practiceSaveId); }
+        }
+
+        public static bool IsPracticeSaveTimerEnabled
+        {
+            get { return IsPracticeSaveSelected && _practiceSaveTimerEnabled; }
+        }
+
+        public static string PracticeCategory
+        {
+            get { return _practiceCategory; }
+        }
+
+        public static string PracticeSaveId
+        {
+            get { return _practiceSaveId; }
+        }
+
         public static void SelectVanilla()
         {
             _launchMode = ModClientLaunchMode.Vanilla;
+            ClearPracticeSelection();
         }
 
         public static void SelectRankedMultiplayer()
         {
             _launchMode = ModClientLaunchMode.ModMultiplayer;
+            ClearPracticeSelection();
         }
 
         public static void SelectRankedSingleplayerPractice()
         {
             _launchMode = ModClientLaunchMode.ModSingleplayerPractice;
+            ClearPracticeSelection();
         }
 
         public static void SelectBetterRngSingleplayer()
         {
             _launchMode = ModClientLaunchMode.ModBetterRngSingleplayer;
+            ClearPracticeSelection();
+        }
+
+        public static void SelectPracticeSave(string category, string saveId, bool enableTimer)
+        {
+            _launchMode = ModClientLaunchMode.ModPracticeSave;
+            _practiceCategory = category ?? string.Empty;
+            _practiceSaveId = saveId ?? string.Empty;
+            _practiceSaveTimerEnabled = enableTimer;
         }
 
         public static void ResetForMainMenu()
         {
             _launchMode = ModClientLaunchMode.Vanilla;
+            ClearPracticeSelection();
+        }
+
+        private static void ClearPracticeSelection()
+        {
+            _practiceCategory = string.Empty;
+            _practiceSaveId = string.Empty;
+            _practiceSaveTimerEnabled = false;
         }
     }
 }

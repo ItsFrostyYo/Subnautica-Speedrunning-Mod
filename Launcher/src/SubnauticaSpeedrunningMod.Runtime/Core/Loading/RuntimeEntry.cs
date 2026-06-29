@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using SubnauticaSpeedrunningMod.Runtime.Localization;
 using SubnauticaSpeedrunningMod.Runtime.Seeds;
 using SubnauticaSpeedrunningMod.Shared;
 
@@ -75,6 +76,7 @@ namespace SubnauticaSpeedrunningMod.Runtime
             ModLog.Info("Crash upload enabled: " + config.EnableCrashUpload);
             ModLog.Info("Module folder: " + config.ModuleFolder);
 
+            ModLanguageFileRuntimeHost.Initialize(modRoot, gameRoot);
             ModSeedStore.Initialize(context);
 
             IList<IModModule> builtInModules = BuiltInModuleLoader.LoadModules(context);
