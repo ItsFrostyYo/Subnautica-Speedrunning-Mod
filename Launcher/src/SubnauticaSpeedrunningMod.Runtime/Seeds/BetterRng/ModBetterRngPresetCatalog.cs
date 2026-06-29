@@ -9,18 +9,6 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
         public const float SpawnMaxX = -103f;
         public const float SpawnMinZ = 92f;
         public const float SpawnMaxZ = 95f;
-        public static readonly string[] ActiveLavaZoneSulphurBiomeNames =
-        {
-            "ActiveLavaZone_Falls_Floor",
-            "ActiveLavaZone_Falls_Wall",
-            "ActiveLavaZone_Falls_Ceiling",
-            "ActiveLavaZone_Falls_Floor_Far",
-            "ActiveLavaZone_Chamber_Floor",
-            "ActiveLavaZone_Chamber_Wall",
-            "ActiveLavaZone_Chamber_Ceiling",
-            "ActiveLavaZone_Chamber_Floor_Far"
-        };
-
         public static readonly Dictionary<string, float> BiomeDistributionOverrides =
             new Dictionary<string, float>(StringComparer.OrdinalIgnoreCase)
             {
@@ -52,7 +40,6 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
                 { "AluminumOxide", new ModBetterRngEntityOverrideDefinition("AluminumOxide", 1f) },
                 { "JellyPlant", new ModBetterRngEntityOverrideDefinition("JellyPlant", 1f) },
                 { "ShaleChunk", new ModBetterRngEntityOverrideDefinition("ShaleChunk", 0.5f) },
-                { "Sulphur", new ModBetterRngEntityOverrideDefinition("Sulphur", 10f, ActiveLavaZoneSulphurBiomeNames) },
                 { "Magnetite", new ModBetterRngEntityOverrideDefinition("Magnetite", 0f) },
                 { "Bleeder", new ModBetterRngEntityOverrideDefinition("Bleeder", 0f) }
             };
