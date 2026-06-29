@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using SubnauticaSpeedrunningMod.Runtime.Practice;
 using SubnauticaSpeedrunningMod.Runtime;
 using SubnauticaSpeedrunningMod.Shared;
 using UnityEngine;
@@ -16,6 +17,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
         private const string ModModeSelectGroupName = "ModModeSelect";
         private const string ModQueueGroupName = "ModQueue";
         private const string ModPracticeNewGameGroupName = "ModPracticeNewGame";
+        private const string ModPracticeSaveGroupName = "ModPracticeSave";
         private const string LeaderboardHomeGroupName = "ModLeaderboardHome";
         private const string BetterRngSavedGamesButtonLabel = "Start a New BetterRNG Save";
         private const string FutureUpdatePlaceholderText = "Coming in a Future Update";
@@ -43,6 +45,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
         private static bool _rankedModeSelectPatched;
         private static bool _rankedQueuePatched;
         private static bool _rankedPracticeNewGamePatched;
+        private static bool _practiceSavePatched;
         private static bool _leaderboardHomePatched;
         private static float _nextMenuPatchAttemptAt;
         private static float _nextWatermarkScanAt;
@@ -301,6 +304,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
             _rankedModeSelectPatched = false;
             _rankedQueuePatched = false;
             _rankedPracticeNewGamePatched = false;
+            _practiceSavePatched = false;
             _leaderboardHomePatched = false;
         }
 
@@ -346,6 +350,16 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
                 SyncRankedPracticeNewGameGroup(rightSide);
             }
 
+            if (!_practiceSavePatched)
+            {
+                EnsurePracticeSaveGroup(rightSide);
+                _practiceSavePatched = true;
+            }
+            else
+            {
+                SyncPracticeSaveGroup(rightSide);
+            }
+
             SyncSingleplayerPanelTitle(rightSide);
             EnsureBetterRngSavedGamesButton(rightSide);
         }
@@ -386,8 +400,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
                     practiceButton.onClick = new Button.ButtonClickedEvent();
                     practiceButton.onClick.AddListener(new UnityAction(delegate
                     {
-                        ModClientSessionMode.SelectVanilla();
-                        ModLog.Info("Practice pressed.");
+                        OpenPracticeSaveGroup(menu, rightSide, practiceButton);
                     }));
                 }
 
@@ -493,6 +506,29 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
 
             DisableSavedGameBehaviors(practiceGroup);
             ConfigureRankedPracticeNewGameGroup(practiceGroup);
+        }
+
+        private static void EnsurePracticeSaveGroup(MainMenuRightSide rightSide)
+        {
+            GameObject practiceSaveGroup = FindGroup(rightSide, ModPracticeSaveGroupName);
+            if (practiceSaveGroup == null)
+            {
+                GameObject savedGamesGroup = FindGroup(rightSide, "SavedGames");
+                if (savedGamesGroup == null)
+                {
+                    ModLog.Warn("Ranked UI could not find SavedGames group to clone for Practice saves.");
+                    return;
+                }
+
+                practiceSaveGroup = UnityEngine.Object.Instantiate(savedGamesGroup, savedGamesGroup.transform.parent, false);
+                practiceSaveGroup.name = ModPracticeSaveGroupName;
+                practiceSaveGroup.transform.SetSiblingIndex(savedGamesGroup.transform.GetSiblingIndex() + 1);
+                practiceSaveGroup.SetActive(false);
+                rightSide.groups.Add(practiceSaveGroup);
+            }
+
+            DisableSavedGameBehaviors(practiceSaveGroup);
+            ConfigurePracticeSaveGroup(practiceSaveGroup);
         }
 
         private static void EnsureLeaderboardHomeGroup(MainMenuRightSide rightSide)
@@ -695,6 +731,73 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
 
             EnsurePanelPlaceholder(leaderboardGroup, content, LeaderboardPlaceholderObjectName, FutureUpdatePlaceholderText);
             SetPanelTitle(leaderboardGroup, "Leaderboard");
+        }
+
+        private static void ConfigurePracticeSaveGroup(GameObject practiceSaveGroup)
+        {
+            if (practiceSaveGroup == null)
+            {
+                return;
+            }
+
+            Transform content = practiceSaveGroup.transform.Find("Scroll View/Viewport/SavedGameAreaContent");
+            if (content == null)
+            {
+                ModLog.Warn("Ranked UI could not find SavedGameAreaContent in Practice saves panel.");
+                return;
+            }
+
+            Transform template = content.Find("NewGame");
+            if (template == null)
+            {
+                ModLog.Warn("Ranked UI could not find NewGame template row in Practice saves panel.");
+                return;
+            }
+
+            DestroySiblingRows(content, template);
+            DestroyChildIfPresent(content, LeaderboardPlaceholderObjectName);
+
+            IList<ModPracticeSaveDefinition> definitions = ModPracticeSaveCatalog.GetPrimaryCategoryDefinitions();
+            if (definitions.Count <= 0)
+            {
+                template.gameObject.SetActive(false);
+                EnsurePanelPlaceholder(practiceSaveGroup, content, LeaderboardPlaceholderObjectName, FutureUpdatePlaceholderText);
+                SetPanelTitle(practiceSaveGroup, ModPracticeSaveCatalog.GetPrimaryCategoryDisplayName());
+                return;
+            }
+
+            template.gameObject.SetActive(true);
+            template.name = "NewGame";
+            ApplyPracticeSaveDefinitionToRow(template.gameObject, definitions[0], 0);
+
+            for (int i = 1; i < definitions.Count; i++)
+            {
+                GameObject row = UnityEngine.Object.Instantiate(template.gameObject, content, false);
+                row.name = "NewGame";
+                ApplyPracticeSaveDefinitionToRow(row, definitions[i], i);
+            }
+
+            SetPanelTitle(practiceSaveGroup, ModPracticeSaveCatalog.GetPrimaryCategoryDisplayName());
+        }
+
+        private static void ApplyPracticeSaveDefinitionToRow(GameObject row, ModPracticeSaveDefinition definition, int siblingIndex)
+        {
+            if (row == null)
+            {
+                return;
+            }
+
+            row.transform.SetSiblingIndex(siblingIndex);
+            ConfigureActionRow(
+                row,
+                definition.DisplayName,
+                true,
+                PracticeNewGameButtonFontSize,
+                delegate
+                {
+                    ModClientSessionMode.SelectPracticeSave(definition.CategoryId, definition.SaveId, definition.TimerEnabled);
+                    ModPracticeSaveRuntimeHost.StartPracticeSave(definition);
+                });
         }
 
         private static void ConfigureQueueRow(GameObject row, QueueRowDefinition definition)
@@ -955,6 +1058,18 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
             SelectPrimaryButton(menu, modButton);
         }
 
+        private static void OpenPracticeSaveGroup(uGUI_MainMenu menu, MainMenuRightSide rightSide, Button practiceButton)
+        {
+            if (rightSide == null)
+            {
+                return;
+            }
+
+            ModClientSessionMode.SelectVanilla();
+            rightSide.OpenGroup(ModPracticeSaveGroupName);
+            SelectPrimaryButton(menu, practiceButton);
+        }
+
         private static void StartRankedPracticeNewGame(GameMode gameMode)
         {
             ModClientSessionMode.SelectRankedSingleplayerPractice();
@@ -1150,6 +1265,15 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
             if (practiceTransform != null)
             {
                 SetButtonLabel(practiceTransform.gameObject, "Practice");
+                Button practiceButton = practiceTransform.GetComponent<Button>();
+                if (practiceButton != null)
+                {
+                    practiceButton.onClick = new Button.ButtonClickedEvent();
+                    practiceButton.onClick.AddListener(new UnityAction(delegate
+                    {
+                        OpenPracticeSaveGroup(menu, MainMenuRightSide.main, practiceButton);
+                    }));
+                }
             }
 
             Transform playTransform = FindDescendantByName(menu.primaryOptions.transform, "ButtonPlay");
@@ -1162,6 +1286,15 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
             if (modTransform != null)
             {
                 SetButtonLabel(modTransform.gameObject, "Ranked");
+                Button modButton = modTransform.GetComponent<Button>();
+                if (modButton != null)
+                {
+                    modButton.onClick = new Button.ButtonClickedEvent();
+                    modButton.onClick.AddListener(new UnityAction(delegate
+                    {
+                        OpenRankedModeSelect(menu, MainMenuRightSide.main, modButton);
+                    }));
+                }
             }
         }
 
@@ -1254,6 +1387,17 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
             }
 
             ConfigureRankedPracticeNewGameGroup(practiceGroup);
+        }
+
+        private static void SyncPracticeSaveGroup(MainMenuRightSide rightSide)
+        {
+            GameObject practiceSaveGroup = FindGroup(rightSide, ModPracticeSaveGroupName);
+            if (practiceSaveGroup == null)
+            {
+                return;
+            }
+
+            ConfigurePracticeSaveGroup(practiceSaveGroup);
         }
 
         private static void SyncLeaderboardHomeGroup(MainMenuRightSide rightSide)
@@ -1491,6 +1635,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
                     string.Equals(text.text, "Play Singleplayer", StringComparison.OrdinalIgnoreCase) ||
                     string.Equals(text.text, "Choose Mode", StringComparison.OrdinalIgnoreCase) ||
                     string.Equals(text.text, "New Game", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(text.text, ModPracticeSaveCatalog.GetPrimaryCategoryDisplayName(), StringComparison.OrdinalIgnoreCase) ||
                     string.Equals(text.text, "Queue Ranked Matches", StringComparison.OrdinalIgnoreCase) ||
                     string.Equals(text.text, "Leaderboard", StringComparison.OrdinalIgnoreCase))
                 {
@@ -1538,6 +1683,23 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
                 color.a = alpha;
                 graphic.color = color;
             }
+        }
+
+        private static void DestroyChildIfPresent(Transform parent, string objectName)
+        {
+            if (parent == null || string.IsNullOrEmpty(objectName))
+            {
+                return;
+            }
+
+            Transform child = parent.Find(objectName);
+            if (child == null)
+            {
+                return;
+            }
+
+            child.gameObject.SetActive(false);
+            UnityEngine.Object.Destroy(child.gameObject);
         }
 
         private static void AttachSceneRuntimeBehaviour(Scene scene)

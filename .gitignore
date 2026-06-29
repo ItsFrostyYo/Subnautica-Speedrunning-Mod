@@ -22,3 +22,8 @@ Thumbs.db
 Desktop.ini
 /Docs/Platform
 /Docs/Seed Reports
+
+# Ignore PowerShell scripts anywhere in the repo.
+*.ps1
+*.psm1
+*.psd1
