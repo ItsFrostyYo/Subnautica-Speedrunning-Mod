@@ -1,6 +1,6 @@
 # Subnautica Speedrunning Mod
 
-Current public beta: `Beta-0.5.5`
+Current public beta: `Beta-0.5.6`
 
 This is a Custom Launcher and Mod for Subnautica Septmember 30th 2018 Version of the game, which is the most prominent Speedrunning Version.
 
