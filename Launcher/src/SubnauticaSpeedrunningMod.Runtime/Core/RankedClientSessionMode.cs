@@ -4,7 +4,8 @@ namespace SubnauticaSpeedrunningMod.Runtime
     {
         Vanilla,
         ModMultiplayer,
-        ModSingleplayerPractice
+        ModSingleplayerPractice,
+        ModBetterRngSingleplayer
     }
 
     internal static class ModClientSessionMode
@@ -21,6 +22,11 @@ namespace SubnauticaSpeedrunningMod.Runtime
             get { return _launchMode == ModClientLaunchMode.ModSingleplayerPractice; }
         }
 
+        public static bool IsBetterRngSingleplayerSelected
+        {
+            get { return _launchMode == ModClientLaunchMode.ModBetterRngSingleplayer; }
+        }
+
         public static void SelectVanilla()
         {
             _launchMode = ModClientLaunchMode.Vanilla;
@@ -34,6 +40,11 @@ namespace SubnauticaSpeedrunningMod.Runtime
         public static void SelectRankedSingleplayerPractice()
         {
             _launchMode = ModClientLaunchMode.ModSingleplayerPractice;
+        }
+
+        public static void SelectBetterRngSingleplayer()
+        {
+            _launchMode = ModClientLaunchMode.ModBetterRngSingleplayer;
         }
 
         public static void ResetForMainMenu()

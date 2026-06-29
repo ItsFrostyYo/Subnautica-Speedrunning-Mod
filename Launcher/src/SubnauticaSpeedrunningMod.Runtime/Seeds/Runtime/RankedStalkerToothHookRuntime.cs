@@ -128,7 +128,10 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
             try
             {
                 ModSeedRuntimeProfile profile = ModSeedRuntimeHost.GetProfile();
-                if (__instance == null || profile == null || !ModSeedRuntimeHost.IsSupportedGameplayMode())
+                if (__instance == null ||
+                    profile == null ||
+                    !ModSeedRuntimeHost.IsSupportedGameplayMode() ||
+                    !ModSeedRuntimeHost.ShouldApplyAnyModdedSeedRules())
                 {
                     return true;
                 }

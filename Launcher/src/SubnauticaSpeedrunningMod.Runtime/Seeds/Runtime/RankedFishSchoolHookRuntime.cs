@@ -149,6 +149,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
         {
             ModSeedRuntimeProfile profile = ModSeedRuntimeHost.GetProfile();
             return profile != null &&
+                   ModSeedRuntimeHost.ShouldApplyAnyModdedSeedRules() &&
                    ModSeedRuntimeHost.IsSupportedGameplayMode() &&
                    profile.DisableFishSchools;
         }

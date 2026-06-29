@@ -22,6 +22,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
         private readonly Dictionary<TechType, ModResolvedManualCreatureSpawn> _manualCreatureSpawns;
         private readonly HashSet<BiomeType> _kelpForestBiomes;
         private readonly HashSet<BiomeType> _prisonAquariumBiomes;
+        private readonly bool _isBetterRng;
 
         private ModSeedRuntimeProfile(
             ModSeedDefinition definition,
@@ -34,7 +35,8 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
             Dictionary<BiomeType, Dictionary<TechType, float>> alwaysBiomeTechMultipliers,
             Dictionary<TechType, ModResolvedManualCreatureSpawn> manualCreatureSpawns,
             HashSet<BiomeType> kelpForestBiomes,
-            HashSet<BiomeType> prisonAquariumBiomes)
+            HashSet<BiomeType> prisonAquariumBiomes,
+            bool isBetterRng)
         {
             Definition = definition;
             _fragmentMultipliers = fragmentMultipliers;
@@ -47,9 +49,15 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
             _manualCreatureSpawns = manualCreatureSpawns;
             _kelpForestBiomes = kelpForestBiomes;
             _prisonAquariumBiomes = prisonAquariumBiomes;
+            _isBetterRng = isBetterRng;
         }
 
         public ModSeedDefinition Definition { get; private set; }
+
+        public bool IsBetterRng
+        {
+            get { return _isBetterRng; }
+        }
 
         public bool DisableFishSchools
         {
@@ -232,7 +240,8 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
                 BuildBiomeTechMap(definition.Survival.AlwaysBiomeTechMultipliers),
                 BuildManualCreatureSpawnMap(definition.Survival.ManualCreatureSpawns, rollContext),
                 BuildBiomeSet(ModSeedReferenceCatalog.KelpForestBiomes),
-                BuildBiomeSet(ModSeedReferenceCatalog.PrisonAquariumBiomes));
+                BuildBiomeSet(ModSeedReferenceCatalog.PrisonAquariumBiomes),
+                ModSeedStore.IsBetterRngSeedId(definition.SeedId));
         }
 
         private static Dictionary<TechType, float> BuildTechTypeMap(List<ModSpawnMultiplierEntry> entries, string groupName, ModSeedRollContext rollContext)

@@ -15,6 +15,11 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
         private static string _runSubtitleText = string.Empty;
         private static bool _runStatusVisible;
         private static Color _runTitleColor = new Color(1f, 0.76f, 0.36f, 1f);
+        private static string _verificationTitleText = string.Empty;
+        private static string _verificationDetailText = string.Empty;
+        private static bool _verificationVisible;
+        private static Color _verificationTitleColor = Color.white;
+        private static Color _verificationDetailColor = Color.white;
         private static Font _font;
         private static FontStyle _fontStyle = FontStyle.Normal;
         private static Color _textColor = Color.white;
@@ -22,6 +27,8 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
         private static GUIStyle _topRightStyle;
         private static GUIStyle _runTitleStyle;
         private static GUIStyle _runSubtitleStyle;
+        private static GUIStyle _verificationTitleStyle;
+        private static GUIStyle _verificationDetailStyle;
 
         public static void EnsureInstalled()
         {
@@ -67,6 +74,16 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
             _runStatusVisible = visible;
         }
 
+        public static void SetVerification(string title, string detail, Color titleColor, Color detailColor, bool visible)
+        {
+            EnsureInstalled();
+            _verificationTitleText = title ?? string.Empty;
+            _verificationDetailText = detail ?? string.Empty;
+            _verificationTitleColor = titleColor;
+            _verificationDetailColor = detailColor;
+            _verificationVisible = visible;
+        }
+
         private static void RefreshTemplateStyle()
         {
             if (Time.unscaledTime < _nextTemplateRefreshAt)
@@ -92,6 +109,8 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
             _topRightStyle = null;
             _runTitleStyle = null;
             _runSubtitleStyle = null;
+            _verificationTitleStyle = null;
+            _verificationDetailStyle = null;
         }
 
         private static void Draw()
@@ -111,6 +130,11 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
             if (_runStatusVisible && !string.IsNullOrEmpty(_runTitleText))
             {
                 DrawRunStatus();
+            }
+
+            if (_verificationVisible && !string.IsNullOrEmpty(_verificationTitleText))
+            {
+                DrawVerification();
             }
         }
 
@@ -180,6 +204,53 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
 
             _runSubtitleStyle.normal.textColor = _textColor;
             return _runSubtitleStyle;
+        }
+
+        private static void DrawVerification()
+        {
+            GUIStyle titleStyle = GetVerificationTitleStyle();
+            GUIStyle detailStyle = GetVerificationDetailStyle();
+
+            float width = 920f;
+            float left = (Screen.width - width) * 0.5f;
+            float top = 18f;
+            float titleHeight = titleStyle.CalcHeight(new GUIContent(_verificationTitleText), width);
+            GUI.Label(new Rect(left, top, width, titleHeight + 4f), _verificationTitleText, titleStyle);
+
+            if (string.IsNullOrEmpty(_verificationDetailText))
+            {
+                return;
+            }
+
+            float detailTop = top + titleHeight + 2f;
+            float detailHeight = detailStyle.CalcHeight(new GUIContent(_verificationDetailText), width);
+            GUI.Label(new Rect(left, detailTop, width, detailHeight + 4f), _verificationDetailText, detailStyle);
+        }
+
+        private static GUIStyle GetVerificationTitleStyle()
+        {
+            if (_verificationTitleStyle == null)
+            {
+                _verificationTitleStyle = CreateBaseStyle(TextAnchor.UpperCenter);
+                _verificationTitleStyle.wordWrap = true;
+                _verificationTitleStyle.fontSize = 28;
+            }
+
+            _verificationTitleStyle.normal.textColor = _verificationTitleColor;
+            return _verificationTitleStyle;
+        }
+
+        private static GUIStyle GetVerificationDetailStyle()
+        {
+            if (_verificationDetailStyle == null)
+            {
+                _verificationDetailStyle = CreateBaseStyle(TextAnchor.UpperCenter);
+                _verificationDetailStyle.wordWrap = true;
+                _verificationDetailStyle.fontSize = 22;
+            }
+
+            _verificationDetailStyle.normal.textColor = _verificationDetailColor;
+            return _verificationDetailStyle;
         }
 
         private static GUIStyle CreateBaseStyle(TextAnchor alignment)

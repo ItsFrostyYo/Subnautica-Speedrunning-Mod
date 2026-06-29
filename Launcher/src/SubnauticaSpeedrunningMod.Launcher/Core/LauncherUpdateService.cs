@@ -34,6 +34,11 @@ internal static class LauncherUpdateService
             return false;
         }
 
+        string tempRoot = Path.Combine(
+            Path.GetTempPath(),
+            "SubnauticaSpeedrunningMod",
+            "Updater",
+            Guid.NewGuid().ToString("N"));
         string updaterSourceRoot = Path.Combine(layout.ModRoot, "Updater");
         if (!Directory.Exists(updaterSourceRoot))
         {
@@ -44,11 +49,6 @@ internal static class LauncherUpdateService
             return false;
         }
 
-        string tempRoot = Path.Combine(
-            Path.GetTempPath(),
-            "SubnauticaSpeedrunningMod",
-            "Updater",
-            Guid.NewGuid().ToString("N"));
         string tempUpdaterRoot = Path.Combine(tempRoot, "Updater");
         Directory.CreateDirectory(tempUpdaterRoot);
         CopyDirectory(updaterSourceRoot, tempUpdaterRoot);
@@ -66,7 +66,7 @@ internal static class LauncherUpdateService
         var startInfo = new ProcessStartInfo
         {
             FileName = updaterExecutablePath,
-            WorkingDirectory = tempUpdaterRoot,
+            WorkingDirectory = Path.GetDirectoryName(updaterExecutablePath) ?? tempRoot,
             UseShellExecute = true
         };
 

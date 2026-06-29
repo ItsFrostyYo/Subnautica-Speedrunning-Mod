@@ -8,6 +8,15 @@ namespace SubnauticaSpeedrunningMod.Updater;
 
 internal sealed class UpdateProgressWindow : Form
 {
+    private static readonly string[] PreservedModDirectories =
+    {
+        "Config",
+        "Data",
+        "Logs",
+        "Cache",
+        "Modules"
+    };
+
     private readonly UpdateArguments _options;
     private readonly Label _statusLabel;
     private readonly ProgressBar _progressBar;
@@ -148,6 +157,14 @@ internal sealed class UpdateProgressWindow : Form
     {
         SetStatus("Applying files...", 80);
 
+        string extractedModRoot = Path.Combine(extractRoot, "SubnauticaSpeedrunningMod");
+        string installedModRoot = Path.Combine(installRoot, "SubnauticaSpeedrunningMod");
+
+        if (Directory.Exists(extractedModRoot))
+        {
+            ReplaceModRoot(extractedModRoot, installedModRoot);
+        }
+
         string[] legacyRootLauncherFiles =
         {
             "Launch Mod.exe",
@@ -176,6 +193,12 @@ internal sealed class UpdateProgressWindow : Form
                 continue;
             }
 
+            if (relativePath.StartsWith("SubnauticaSpeedrunningMod" + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(relativePath, "SubnauticaSpeedrunningMod", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
             string destinationPath = Path.Combine(installRoot, relativePath);
             Directory.CreateDirectory(Path.GetDirectoryName(destinationPath) ?? installRoot);
             File.Copy(sourcePath, destinationPath, true);
@@ -186,6 +209,114 @@ internal sealed class UpdateProgressWindow : Form
         }
 
         SetStatus("Finishing update...", 99);
+    }
+
+    private void ReplaceModRoot(string sourceModRoot, string targetModRoot)
+    {
+        SetStatus("Refreshing mod folder...", 79);
+        Directory.CreateDirectory(targetModRoot);
+
+        string[] existingEntries = Directory.GetFileSystemEntries(targetModRoot);
+        for (int i = 0; i < existingEntries.Length; i++)
+        {
+            string existingEntry = existingEntries[i];
+            string name = Path.GetFileName(existingEntry);
+            if (ShouldPreservePath(name))
+            {
+                continue;
+            }
+
+            DeleteFileSystemEntry(existingEntry);
+        }
+
+        CopyDirectoryContents(sourceModRoot, targetModRoot, skipPreservedDirectories: true);
+    }
+
+    private static bool ShouldPreservePath(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return false;
+        }
+
+        for (int i = 0; i < PreservedModDirectories.Length; i++)
+        {
+            if (string.Equals(name, PreservedModDirectories[i], StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static void CopyDirectoryContents(string sourceRoot, string destinationRoot, bool skipPreservedDirectories)
+    {
+        Directory.CreateDirectory(destinationRoot);
+
+        string[] directories = Directory.GetDirectories(sourceRoot, "*", SearchOption.AllDirectories);
+        for (int i = 0; i < directories.Length; i++)
+        {
+            string directory = directories[i];
+            string relativePath = directory.Substring(sourceRoot.Length).TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            if (skipPreservedDirectories && IsPathUnderPreservedDirectory(relativePath))
+            {
+                continue;
+            }
+
+            Directory.CreateDirectory(Path.Combine(destinationRoot, relativePath));
+        }
+
+        string[] files = Directory.GetFiles(sourceRoot, "*", SearchOption.AllDirectories);
+        for (int i = 0; i < files.Length; i++)
+        {
+            string sourcePath = files[i];
+            string relativePath = sourcePath.Substring(sourceRoot.Length).TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            if (skipPreservedDirectories && IsPathUnderPreservedDirectory(relativePath))
+            {
+                continue;
+            }
+
+            string destinationPath = Path.Combine(destinationRoot, relativePath);
+            Directory.CreateDirectory(Path.GetDirectoryName(destinationPath) ?? destinationRoot);
+            File.Copy(sourcePath, destinationPath, true);
+        }
+    }
+
+    private static bool IsPathUnderPreservedDirectory(string relativePath)
+    {
+        if (string.IsNullOrWhiteSpace(relativePath))
+        {
+            return false;
+        }
+
+        string normalizedRelativePath = relativePath.TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        for (int i = 0; i < PreservedModDirectories.Length; i++)
+        {
+            string preservedName = PreservedModDirectories[i];
+            if (string.Equals(normalizedRelativePath, preservedName, StringComparison.OrdinalIgnoreCase) ||
+                normalizedRelativePath.StartsWith(preservedName + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) ||
+                normalizedRelativePath.StartsWith(preservedName + Path.AltDirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static void DeleteFileSystemEntry(string path)
+    {
+        if (Directory.Exists(path))
+        {
+            Directory.Delete(path, true);
+            return;
+        }
+
+        if (File.Exists(path))
+        {
+            File.Delete(path);
+        }
     }
 
     private void RelaunchLauncher()

@@ -17,14 +17,17 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
         private const string ModQueueGroupName = "ModQueue";
         private const string ModPracticeNewGameGroupName = "ModPracticeNewGame";
         private const string LeaderboardHomeGroupName = "ModLeaderboardHome";
+        private const string BetterRngSavedGamesButtonLabel = "Start a New BetterRNG Save";
         private const string FutureUpdatePlaceholderText = "Coming in a Future Update";
         private const string LeaderboardPlaceholderObjectName = "ModLeaderboardPlaceholder";
         private const int WatermarkFontSize = 18;
         private const int QueueButtonFontSize = 34;
         private const int PanelTitleFontSize = 18;
         private const int DisabledQueueButtonFontSize = 19;
+        private const int DisabledModeSelectButtonFontSize = 24;
         private const int PracticeNewGameButtonFontSize = 34;
         private const int PracticeNewGameDisabledButtonFontSize = 24;
+        private const int BetterRngSavedGamesButtonFontSize = 22;
         private const float ComingSoonRowAlpha = 0.42f;
         private const float MenuPatchRetryIntervalSeconds = 0.25f;
         private const float WatermarkScanIntervalSeconds = 2f;
@@ -344,6 +347,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
             }
 
             SyncSingleplayerPanelTitle(rightSide);
+            EnsureBetterRngSavedGamesButton(rightSide);
         }
 
         private static void PatchPrimaryOptions(uGUI_MainMenu menu, MainMenuRightSide rightSide)
@@ -537,14 +541,10 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
             template.SetSiblingIndex(0);
             ConfigureActionRow(
                 template.gameObject,
-                "Ranked Multiplayer",
-                true,
-                QueueButtonFontSize,
-                delegate
-                {
-                    ModClientSessionMode.SelectRankedMultiplayer();
-                    OpenRankedQueue(uGUI_MainMenu.main, MainMenuRightSide.main, FindPrimaryButton("ButtonRanked"));
-                });
+                "Ranked Multiplayer\nComing in Future Update",
+                false,
+                DisabledModeSelectButtonFontSize,
+                null);
 
             GameObject practiceRow = UnityEngine.Object.Instantiate(template.gameObject, content, false);
             practiceRow.name = "NewGame";
@@ -726,6 +726,118 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
             button.interactable = definition.IsInteractable;
             ResetMainMenuButtonVisualState(row);
             ApplyQueueRowPresentation(row, definition);
+        }
+
+        private static void EnsureBetterRngSavedGamesButton(MainMenuRightSide rightSide)
+        {
+            if (rightSide == null)
+            {
+                return;
+            }
+
+            GameObject savedGamesGroup = FindGroup(rightSide, "SavedGames");
+            if (savedGamesGroup == null)
+            {
+                return;
+            }
+
+            Transform content = savedGamesGroup.transform.Find("Scroll View/Viewport/SavedGameAreaContent");
+            if (content == null)
+            {
+                return;
+            }
+
+            Transform template = content.Find("NewGame");
+            if (template == null)
+            {
+                return;
+            }
+
+            GameObject betterRngRow = FindBetterRngSavedGamesRow(content);
+            GameObject legacyNamedRow = null;
+            Transform legacyNamedTransform = content.Find("ModBetterRngNewGame");
+            if (legacyNamedTransform != null)
+            {
+                legacyNamedRow = legacyNamedTransform.gameObject;
+            }
+
+            if (betterRngRow == null && legacyNamedRow != null)
+            {
+                betterRngRow = legacyNamedRow;
+            }
+
+            if (legacyNamedRow != null && betterRngRow != legacyNamedRow)
+            {
+                legacyNamedRow.SetActive(false);
+                UnityEngine.Object.Destroy(legacyNamedRow);
+            }
+
+            if (betterRngRow == null)
+            {
+                betterRngRow = UnityEngine.Object.Instantiate(template.gameObject, content, false);
+            }
+
+            Button betterRngButton = betterRngRow.GetComponentInChildren<Button>(true);
+            if (betterRngButton != null)
+            {
+                betterRngButton.onClick = new Button.ButtonClickedEvent();
+                betterRngButton.onClick.AddListener(new UnityAction(delegate
+                {
+                    ModClientSessionMode.SelectBetterRngSingleplayer();
+
+                    uGUI_MainMenu menu = uGUI_MainMenu.main;
+                    if (menu != null)
+                    {
+                        menu.OnButtonNew();
+                    }
+                }));
+
+                betterRngButton.interactable = true;
+            }
+
+            betterRngRow.SetActive(true);
+            betterRngRow.name = "NewGame";
+            betterRngRow.transform.SetSiblingIndex(Mathf.Min(1, content.childCount - 1));
+            SetButtonLabel(betterRngRow, BetterRngSavedGamesButtonLabel);
+            SetButtonLabelFontSize(betterRngRow, BetterRngSavedGamesButtonFontSize);
+            SetAlpha(betterRngRow, 1f);
+            ResetMainMenuButtonVisualState(betterRngRow);
+
+            ModBetterRngSavedGamesRowMarker marker = betterRngRow.GetComponent<ModBetterRngSavedGamesRowMarker>();
+            if (marker == null)
+            {
+                marker = betterRngRow.AddComponent<ModBetterRngSavedGamesRowMarker>();
+            }
+
+            RectTransform contentRect = content as RectTransform;
+            if (contentRect != null)
+            {
+                LayoutRebuilder.ForceRebuildLayoutImmediate(contentRect);
+            }
+        }
+
+        private static GameObject FindBetterRngSavedGamesRow(Transform content)
+        {
+            if (content == null)
+            {
+                return null;
+            }
+
+            for (int i = 0; i < content.childCount; i++)
+            {
+                Transform child = content.GetChild(i);
+                if (child == null)
+                {
+                    continue;
+                }
+
+                if (child.GetComponent<ModBetterRngSavedGamesRowMarker>() != null)
+                {
+                    return child.gameObject;
+                }
+            }
+
+            return null;
         }
 
         private static void DisableSavedGameBehaviors(GameObject modGroup)
@@ -994,10 +1106,26 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
                 return;
             }
 
+            ModSessionModeMarker marker = button.gameObject.GetComponent<ModSessionModeMarker>();
+            if (marker != null && marker.LaunchMode == mode)
+            {
+                return;
+            }
+
+            if (marker == null)
+            {
+                marker = button.gameObject.AddComponent<ModSessionModeMarker>();
+            }
+
+            marker.LaunchMode = mode;
+
             button.onClick.AddListener(new UnityAction(delegate
             {
                 switch (mode)
                 {
+                    case ModClientLaunchMode.ModBetterRngSingleplayer:
+                        ModClientSessionMode.SelectBetterRngSingleplayer();
+                        break;
                     case ModClientLaunchMode.ModSingleplayerPractice:
                         ModClientSessionMode.SelectRankedSingleplayerPractice();
                         break;
@@ -1055,14 +1183,10 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
             {
                 ConfigureActionRow(
                     content.GetChild(0).gameObject,
-                    "Ranked Multiplayer",
-                    true,
-                    QueueButtonFontSize,
-                    delegate
-                    {
-                        ModClientSessionMode.SelectRankedMultiplayer();
-                        OpenRankedQueue(uGUI_MainMenu.main, MainMenuRightSide.main, FindPrimaryButton("ButtonRanked"));
-                    });
+                    "Ranked Multiplayer\nComing in Future Update",
+                    false,
+                    DisabledModeSelectButtonFontSize,
+                    null);
             }
 
             if (content.childCount > 1)
@@ -1638,6 +1762,15 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
 
                 TryAttachPersistentRuntimeBehaviour();
             }
+        }
+
+        private sealed class ModSessionModeMarker : MonoBehaviour
+        {
+            public ModClientLaunchMode LaunchMode;
+        }
+
+        private sealed class ModBetterRngSavedGamesRowMarker : MonoBehaviour
+        {
         }
     }
 }
