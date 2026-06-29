@@ -49,6 +49,11 @@ namespace SubnauticaSpeedrunningMod.Bootstrap
                 Write(logPath, "Bootstrap starting.");
                 Write(logPath, "Game root: " + gameRoot);
 
+                if (TryHandOffDirectLaunchToLauncher(logPath, modRoot, gameRoot))
+                {
+                    return;
+                }
+
                 GameInstallValidationReport validationReport = GameInstallValidator.Validate(gameRoot);
                 if (!validationReport.IsValid)
                 {
@@ -105,6 +110,81 @@ namespace SubnauticaSpeedrunningMod.Bootstrap
                 {
                 }
             }
+        }
+
+        private static bool TryHandOffDirectLaunchToLauncher(string logPath, string modRoot, string gameRoot)
+        {
+            string launcherVersion = Environment.GetEnvironmentVariable("MOD_LAUNCHER_VERSION");
+            if (!string.IsNullOrEmpty(launcherVersion) &&
+                !string.Equals(launcherVersion, "direct-launch", StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            string launcherPath = Path.Combine(modRoot, "Launch Mod.exe");
+            if (!File.Exists(launcherPath))
+            {
+                Write(logPath, "Direct-launch handoff skipped because Launch Mod.exe was not found at " + launcherPath);
+                return false;
+            }
+
+            try
+            {
+                string arguments = BuildLauncherHandoffArguments();
+                var startInfo = new ProcessStartInfo
+                {
+                    FileName = launcherPath,
+                    Arguments = arguments,
+                    WorkingDirectory = gameRoot,
+                    UseShellExecute = true
+                };
+
+                Write(logPath, "Direct-launch detected; handing off to launcher at " + launcherPath);
+                if (!string.IsNullOrEmpty(arguments))
+                {
+                    Write(logPath, "Launcher handoff arguments: " + arguments);
+                }
+
+                Process.Start(startInfo);
+                Environment.Exit(0);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Write(logPath, "Direct-launch handoff failed: " + ex);
+                return false;
+            }
+        }
+
+        private static string BuildLauncherHandoffArguments()
+        {
+            string[] commandLineArgs = Environment.GetCommandLineArgs();
+            var builder = new System.Text.StringBuilder();
+            builder.Append("--handoff-pid ");
+            builder.Append(Process.GetCurrentProcess().Id);
+
+            for (int i = 1; i < commandLineArgs.Length; i++)
+            {
+                builder.Append(' ');
+                builder.Append(QuoteIfNeeded(commandLineArgs[i]));
+            }
+
+            return builder.ToString();
+        }
+
+        private static string QuoteIfNeeded(string value)
+        {
+            if (string.IsNullOrEmpty(value))
+            {
+                return "\"\"";
+            }
+
+            if (value.IndexOf(' ') >= 0 || value.IndexOf('"') >= 0)
+            {
+                return "\"" + value.Replace("\"", "\\\"") + "\"";
+            }
+
+            return value;
         }
 
         private static void Write(string logPath, string message)

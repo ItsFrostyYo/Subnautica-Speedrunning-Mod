@@ -18,6 +18,19 @@ internal static class LauncherApp
         LauncherLog.Info("Mod root: " + layout.ModRoot);
         LauncherLog.Info("Game root: " + layout.GameRoot);
 
+        int handoffProcessId = ParseHandoffProcessId(args);
+        if (handoffProcessId > 0)
+        {
+            LauncherLog.Info("Launcher received direct-launch handoff from process id " + handoffProcessId + ".");
+            if (!WaitForHandoffProcessExit(handoffProcessId))
+            {
+                LauncherAlert.ShowError(
+                    "Launcher Handoff Failed",
+                    "The original Subnautica process did not close in time for the launcher handoff. Close Subnautica completely, then launch the mod again.");
+                return 12;
+            }
+        }
+
         if (!File.Exists(layout.GameExecutablePath))
         {
             LauncherLog.Error("Subnautica.exe was not found at " + layout.GameExecutablePath);
@@ -81,6 +94,8 @@ internal static class LauncherApp
 
         var forwardedArguments = args
             .Where(static arg => !string.Equals(arg, "--setup-only", StringComparison.OrdinalIgnoreCase))
+            .Where(static arg => !string.Equals(arg, "--handoff-pid", StringComparison.OrdinalIgnoreCase))
+            .Where((arg, index) => !IsHandoffPidValue(args, index))
             .Select(QuoteIfNeeded);
         var sessionId = Guid.NewGuid().ToString("N");
 
@@ -97,7 +112,7 @@ internal static class LauncherApp
         startInfo.Environment["MOD_SESSION_ID"] = sessionId;
         startInfo.Environment["MOD_LAUNCHER_VERSION"] = LauncherVersion.DisplayVersion;
 
-        if (TryFindExistingGameProcess(layout.GameExecutablePath, out var existingProcessId))
+        if (TryFindExistingGameProcess(layout.GameExecutablePath, handoffProcessId, out var existingProcessId))
         {
             LauncherLog.Error("Refusing to launch because Subnautica is already running with process id " + existingProcessId + ".");
             LauncherAlert.ShowError(
@@ -120,6 +135,31 @@ internal static class LauncherApp
         return 0;
     }
 
+    private static int ParseHandoffProcessId(string[] args)
+    {
+        for (int i = 0; i < args.Length - 1; i++)
+        {
+            if (!string.Equals(args[i], "--handoff-pid", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            int processId;
+            if (int.TryParse(args[i + 1], out processId) && processId > 0)
+            {
+                return processId;
+            }
+        }
+
+        return 0;
+    }
+
+    private static bool IsHandoffPidValue(string[] args, int index)
+    {
+        return index > 0 &&
+               string.Equals(args[index - 1], "--handoff-pid", StringComparison.OrdinalIgnoreCase);
+    }
+
     private static string QuoteIfNeeded(string value)
     {
         if (value.Contains(' ') || value.Contains('"'))
@@ -130,7 +170,34 @@ internal static class LauncherApp
         return value;
     }
 
-    private static bool TryFindExistingGameProcess(string expectedExecutablePath, out int processId)
+    private static bool WaitForHandoffProcessExit(int handoffProcessId)
+    {
+        try
+        {
+            using var process = Process.GetProcessById(handoffProcessId);
+            LauncherLog.Info("Waiting for handed-off game process " + handoffProcessId + " to exit.");
+            if (!process.WaitForExit(15000))
+            {
+                LauncherLog.Warn("Handoff process " + handoffProcessId + " did not exit within 15 seconds.");
+                return false;
+            }
+
+            LauncherLog.Info("Handoff process " + handoffProcessId + " exited.");
+            return true;
+        }
+        catch (ArgumentException)
+        {
+            LauncherLog.Info("Handoff process " + handoffProcessId + " already exited before launcher wait began.");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            LauncherLog.Warn("Failed while waiting for handoff process " + handoffProcessId + ": " + ex.Message);
+            return false;
+        }
+    }
+
+    private static bool TryFindExistingGameProcess(string expectedExecutablePath, int ignoredProcessId, out int processId)
     {
         processId = 0;
         string processName = Path.GetFileNameWithoutExtension(expectedExecutablePath);
@@ -140,6 +207,11 @@ internal static class LauncherApp
             Process process = processes[i];
             try
             {
+                if (ignoredProcessId > 0 && process.Id == ignoredProcessId)
+                {
+                    continue;
+                }
+
                 string processPath = process.MainModule?.FileName;
                 if (!string.IsNullOrEmpty(processPath) &&
                     string.Equals(processPath, expectedExecutablePath, StringComparison.OrdinalIgnoreCase))
