@@ -9,6 +9,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
 
         public void Initialize(RuntimeContext context)
         {
+            ModOptionsPanelRuntime.Install();
             ModMainMenuRuntimeHost.Install(context);
         }
     }
