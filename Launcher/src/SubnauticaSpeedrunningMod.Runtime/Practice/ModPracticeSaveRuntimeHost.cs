@@ -12,6 +12,8 @@ namespace SubnauticaSpeedrunningMod.Runtime.Practice
     {
         private const string GameInfoFileName = "gameinfo.json";
         private const string PracticeSlotPrefix = "practice_";
+        private const string GlobalObjectsFileName = "global-objects.bin";
+        private const string SceneObjectsFileName = "scene-objects.bin";
         private static readonly MethodInfo ClearTemporarySaveMethod = typeof(SaveLoadManager).GetMethod("ClearTemporarySave", BindingFlags.Instance | BindingFlags.NonPublic);
         private static readonly MethodInfo CreateTemporarySaveMethod = typeof(SaveLoadManager).GetMethod("CreateTemporarySave", BindingFlags.Static | BindingFlags.NonPublic);
         private static bool _launchInProgress;
@@ -40,10 +42,20 @@ namespace SubnauticaSpeedrunningMod.Runtime.Practice
                     yield break;
                 }
 
-                string templatePath = ModPracticeSaveCatalog.GetInstalledSavePath(definition);
+                ModPracticeSaveTemplateLayout templateLayout = ModPracticeSaveCatalog.GetTemplateLayout(
+                    definition,
+                    ModPracticeHotbarOptions.GetSelectedLayoutIndex());
+                string templatePath = templateLayout.TemplateRootPath;
                 if (!Directory.Exists(templatePath))
                 {
                     FailLaunch("Practice save files are missing for " + definition.DisplayName + ".", ref loadingScreenVisible);
+                    yield break;
+                }
+
+                string validationError;
+                if (!ValidateTemplateLayout(templateLayout, out validationError))
+                {
+                    FailLaunch(validationError, ref loadingScreenVisible);
                     yield break;
                 }
 
@@ -76,7 +88,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.Practice
                     yield break;
                 }
 
-                BackgroundDirectoryCopyOperation copyOperation = StartBackgroundDirectoryCopy(templatePath, temporarySavePath);
+                BackgroundDirectoryCopyOperation copyOperation = StartBackgroundDirectoryCopy(templateLayout, temporarySavePath);
                 while (!copyOperation.IsCompleted)
                 {
                     yield return null;
@@ -106,7 +118,9 @@ namespace SubnauticaSpeedrunningMod.Runtime.Practice
                     definition.DisplayName +
                     "' from template '" +
                     templatePath +
-                    "' using temporary workspace '" +
+                    "' using " +
+                    ModPracticeHotbarOptions.GetDisplayName(ModPracticeHotbarOptions.GetSelectedLayoutIndex()) +
+                    " and temporary workspace '" +
                     temporarySavePath +
                     "' and synthetic slot '" +
                     Utils.GetSavegameDir() +
@@ -274,9 +288,146 @@ namespace SubnauticaSpeedrunningMod.Runtime.Practice
             }
         }
 
-        private static BackgroundDirectoryCopyOperation StartBackgroundDirectoryCopy(string sourcePath, string destinationPath)
+        private static void CopyTemplateDirectory(ModPracticeSaveTemplateLayout templateLayout, string destinationPath)
         {
-            BackgroundDirectoryCopyOperation operation = new BackgroundDirectoryCopyOperation(sourcePath, destinationPath);
+            string sourcePath = templateLayout.TemplateRootPath;
+            if (!Directory.Exists(sourcePath))
+            {
+                throw new DirectoryNotFoundException(sourcePath);
+            }
+
+            if (Directory.Exists(destinationPath))
+            {
+                Directory.Delete(destinationPath, recursive: true);
+            }
+
+            Directory.CreateDirectory(destinationPath);
+
+            string[] directories = Directory.GetDirectories(sourcePath, "*", SearchOption.AllDirectories);
+            for (int i = 0; i < directories.Length; i++)
+            {
+                if (IsHotbarVariantDirectory(sourcePath, directories[i]))
+                {
+                    continue;
+                }
+
+                string relativeDirectory = directories[i].Substring(sourcePath.Length).TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                Directory.CreateDirectory(Path.Combine(destinationPath, relativeDirectory));
+            }
+
+            string[] files = Directory.GetFiles(sourcePath, "*", SearchOption.AllDirectories);
+            for (int i = 0; i < files.Length; i++)
+            {
+                if (IsHotbarVariantFile(sourcePath, files[i]))
+                {
+                    continue;
+                }
+
+                string relativeFile = files[i].Substring(sourcePath.Length).TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                string targetPath = Path.Combine(destinationPath, relativeFile);
+                string targetDirectory = Path.GetDirectoryName(targetPath);
+                if (!string.IsNullOrEmpty(targetDirectory) && !Directory.Exists(targetDirectory))
+                {
+                    Directory.CreateDirectory(targetDirectory);
+                }
+
+                File.Copy(files[i], targetPath, overwrite: true);
+            }
+
+            if (templateLayout.HasSelectedVariant)
+            {
+                CopyVariantObjectsIntoRoot(templateLayout.SelectedVariantDirectoryPath, destinationPath);
+            }
+        }
+
+        private static bool ValidateTemplateLayout(ModPracticeSaveTemplateLayout templateLayout, out string error)
+        {
+            error = string.Empty;
+
+            if (!Directory.Exists(templateLayout.TemplateRootPath))
+            {
+                error = "Practice save files are missing.";
+                return false;
+            }
+
+            if (templateLayout.SelectedVariantRequired && !templateLayout.HasSelectedVariant)
+            {
+                error =
+                    "Practice save hotbar files are missing for " +
+                    ModPracticeHotbarOptions.GetDisplayName(ModPracticeHotbarOptions.GetSelectedLayoutIndex()) +
+                    ".";
+                return false;
+            }
+
+            if (templateLayout.HasSelectedVariant)
+            {
+                string variantGlobalObjectsPath = Path.Combine(templateLayout.SelectedVariantDirectoryPath, GlobalObjectsFileName);
+                string variantSceneObjectsPath = Path.Combine(templateLayout.SelectedVariantDirectoryPath, SceneObjectsFileName);
+                if (!File.Exists(variantGlobalObjectsPath) || !File.Exists(variantSceneObjectsPath))
+                {
+                    error =
+                        "Practice save hotbar variant is incomplete for " +
+                        ModPracticeHotbarOptions.GetDisplayName(ModPracticeHotbarOptions.GetSelectedLayoutIndex()) +
+                        ".";
+                    return false;
+                }
+            }
+
+            string rootGlobalObjectsPath = Path.Combine(templateLayout.TemplateRootPath, GlobalObjectsFileName);
+            string rootSceneObjectsPath = Path.Combine(templateLayout.TemplateRootPath, SceneObjectsFileName);
+            if (!templateLayout.HasSelectedVariant &&
+                (!File.Exists(rootGlobalObjectsPath) || !File.Exists(rootSceneObjectsPath)))
+            {
+                error = "Practice save object files are missing.";
+                return false;
+            }
+
+            return true;
+        }
+
+        private static bool IsHotbarVariantDirectory(string templateRootPath, string candidateDirectoryPath)
+        {
+            if (string.IsNullOrEmpty(templateRootPath) || string.IsNullOrEmpty(candidateDirectoryPath))
+            {
+                return false;
+            }
+
+            string relativePath = candidateDirectoryPath
+                .Substring(templateRootPath.Length)
+                .TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+            for (int i = 0; i < ModPracticeHotbarOptions.LayoutCountValue; i++)
+            {
+                string variantDirectoryName = ModPracticeHotbarOptions.GetVariantDirectoryName(i);
+                if (relativePath.StartsWith(variantDirectoryName + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) ||
+                    relativePath.StartsWith(variantDirectoryName + Path.AltDirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(relativePath, variantDirectoryName, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool IsHotbarVariantFile(string templateRootPath, string candidateFilePath)
+        {
+            string directoryPath = Path.GetDirectoryName(candidateFilePath);
+            return IsHotbarVariantDirectory(templateRootPath, directoryPath);
+        }
+
+        private static void CopyVariantObjectsIntoRoot(string variantDirectoryPath, string destinationRootPath)
+        {
+            string variantGlobalObjectsPath = Path.Combine(variantDirectoryPath, GlobalObjectsFileName);
+            string variantSceneObjectsPath = Path.Combine(variantDirectoryPath, SceneObjectsFileName);
+
+            File.Copy(variantGlobalObjectsPath, Path.Combine(destinationRootPath, GlobalObjectsFileName), overwrite: true);
+            File.Copy(variantSceneObjectsPath, Path.Combine(destinationRootPath, SceneObjectsFileName), overwrite: true);
+        }
+
+        private static BackgroundDirectoryCopyOperation StartBackgroundDirectoryCopy(ModPracticeSaveTemplateLayout templateLayout, string destinationPath)
+        {
+            BackgroundDirectoryCopyOperation operation = new BackgroundDirectoryCopyOperation(templateLayout, destinationPath);
             ThreadPool.QueueUserWorkItem(ExecuteBackgroundDirectoryCopy, operation);
             return operation;
         }
@@ -291,7 +442,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.Practice
 
             try
             {
-                CopyDirectory(operation.SourcePath, operation.DestinationPath);
+                CopyTemplateDirectory(operation.TemplateLayout, operation.DestinationPath);
                 operation.MarkCompleted(null);
             }
             catch (Exception ex)
@@ -322,13 +473,13 @@ namespace SubnauticaSpeedrunningMod.Runtime.Practice
 
         private sealed class BackgroundDirectoryCopyOperation
         {
-            public BackgroundDirectoryCopyOperation(string sourcePath, string destinationPath)
+            public BackgroundDirectoryCopyOperation(ModPracticeSaveTemplateLayout templateLayout, string destinationPath)
             {
-                SourcePath = sourcePath ?? string.Empty;
+                TemplateLayout = templateLayout;
                 DestinationPath = destinationPath ?? string.Empty;
             }
 
-            public string SourcePath { get; private set; }
+            public ModPracticeSaveTemplateLayout TemplateLayout { get; private set; }
 
             public string DestinationPath { get; private set; }
 

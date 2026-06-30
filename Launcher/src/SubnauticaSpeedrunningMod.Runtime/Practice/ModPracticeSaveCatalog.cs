@@ -8,6 +8,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.Practice
     {
         public const string SaveFilesFolderName = "SaveFiles";
         public const string AnyPercentSurvivalGlitchedCategoryId = "Any% Survival Glitched";
+        private const string HotbarLayoutPreviewFileName = "HotbarLayout.png";
 
         private static readonly ModPracticeSaveDefinition[] Definitions =
         {
@@ -63,6 +64,60 @@ namespace SubnauticaSpeedrunningMod.Runtime.Practice
         {
             string modRoot = PathLayout.GetModRoot();
             return Path.Combine(Path.Combine(Path.Combine(modRoot, SaveFilesFolderName), definition.CategoryId), definition.SaveId);
+        }
+
+        public static ModPracticeSaveTemplateLayout GetTemplateLayout(ModPracticeSaveDefinition definition, int layoutIndex)
+        {
+            string templateRootPath = GetInstalledSavePath(definition);
+            string selectedVariantDirectoryPath = Path.Combine(
+                templateRootPath,
+                ModPracticeHotbarOptions.GetVariantDirectoryName(layoutIndex));
+
+            bool hasAnyVariantDirectories = false;
+            for (int i = 0; i < ModPracticeHotbarOptions.LayoutCountValue; i++)
+            {
+                string candidatePath = Path.Combine(
+                    templateRootPath,
+                    ModPracticeHotbarOptions.GetVariantDirectoryName(i));
+                if (Directory.Exists(candidatePath))
+                {
+                    hasAnyVariantDirectories = true;
+                    break;
+                }
+            }
+
+            if (!hasAnyVariantDirectories)
+            {
+                selectedVariantDirectoryPath = string.Empty;
+            }
+
+            return new ModPracticeSaveTemplateLayout(
+                templateRootPath,
+                selectedVariantDirectoryPath,
+                selectedVariantRequired: hasAnyVariantDirectories);
+        }
+
+        public static bool TryGetHotbarLayoutPreviewPath(int layoutIndex, out string previewPath)
+        {
+            previewPath = string.Empty;
+
+            for (int i = 0; i < Definitions.Length; i++)
+            {
+                ModPracticeSaveTemplateLayout layout = GetTemplateLayout(Definitions[i], layoutIndex);
+                if (!layout.HasSelectedVariant)
+                {
+                    continue;
+                }
+
+                string candidatePath = Path.Combine(layout.SelectedVariantDirectoryPath, HotbarLayoutPreviewFileName);
+                if (File.Exists(candidatePath))
+                {
+                    previewPath = candidatePath;
+                    return true;
+                }
+            }
+
+            return false;
         }
     }
 

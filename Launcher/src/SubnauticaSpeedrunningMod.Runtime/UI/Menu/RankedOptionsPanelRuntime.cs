@@ -1,23 +1,27 @@
 using System;
+using System.Collections.Generic;
+using System.IO;
 using UnityEngine;
 using UnityEngine.UI;
+using SubnauticaSpeedrunningMod.Runtime.Practice;
 
 namespace SubnauticaSpeedrunningMod.Runtime.Ui
 {
     internal static class ModOptionsPanelRuntime
     {
+        private const string PracticeTabLabel = "Practice";
+        private const string PracticeChoiceRowObjectName = "ModPracticeHotbarChoice";
+        private const string PracticePreviewImageObjectName = "ModPracticeHotbarPreview";
         private const string AccountTabLabel = "Account";
         private const string ModSettingsTabLabel = "Ranked Settings";
         private const string FutureUpdatePlaceholderText = "Coming in a Future Update";
-        private const string AccountPlaceholderObjectName = "ModAccountPlaceholder";
-        private const string ModSettingsPlaceholderObjectName = "ModSettingsPlaceholder";
+        private static readonly Dictionary<string, Sprite> HotbarPreviewSprites = new Dictionary<string, Sprite>(StringComparer.OrdinalIgnoreCase);
 
         private static int _lastSeenOptionsPanelId;
         private static bool _loggedForCurrentPanel;
 
         public static void Install()
         {
-            // The stable menu path patches the options panel live while it is open.
         }
 
         public static void RefreshLivePanel()
@@ -38,7 +42,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
 
         internal static void PatchPanel(uGUI_OptionsPanel panel)
         {
-            if (panel == null)
+            if (panel == null || uGUI_MainMenu.main == null)
             {
                 return;
             }
@@ -56,9 +60,13 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
                 !HasTab(panel, AccountTabLabel) &&
                 !HasTab(panel, ModSettingsTabLabel))
             {
-                ModLog.Info("Temporarily removed Account and Ranked Settings tabs from the main menu options panel.");
+                ModLog.Info("Removed Account and Ranked Settings tabs from the main menu options panel.");
                 _loggedForCurrentPanel = true;
             }
+
+            bool practiceTabAdded;
+            int practiceTabIndex = EnsureTab(panel, PracticeTabLabel, out practiceTabAdded);
+            EnsurePracticeTabContent(panel, practiceTabIndex);
 
             if (panel.tabsContainer != null)
             {
@@ -100,6 +108,262 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
             }
 
             return true;
+        }
+
+        private static void EnsurePracticeTabContent(uGUI_OptionsPanel panel, int tabIndex)
+        {
+            if (panel == null || panel.panesContainer == null || tabIndex < 0 || tabIndex >= panel.panesContainer.childCount)
+            {
+                return;
+            }
+
+            Transform paneTransform = panel.panesContainer.GetChild(tabIndex);
+            if (paneTransform == null)
+            {
+                return;
+            }
+
+            Transform contentTransform = paneTransform.Find("Content") ?? paneTransform;
+            if (contentTransform == null)
+            {
+                return;
+            }
+
+            GameObject row = FindOrCreatePracticeChoiceRow(panel, tabIndex, contentTransform);
+            if (row == null)
+            {
+                return;
+            }
+
+            ConfigurePracticeChoiceRow(row);
+        }
+
+        private static GameObject FindOrCreatePracticeChoiceRow(uGUI_OptionsPanel panel, int tabIndex, Transform contentTransform)
+        {
+            Transform existingTransform = contentTransform.Find(PracticeChoiceRowObjectName);
+            if (existingTransform != null)
+            {
+                return existingTransform.gameObject;
+            }
+
+            string[] options = BuildPracticeHotbarOptionLabels();
+            uGUI_Choice choice = panel.AddChoiceOption(
+                tabIndex,
+                "Hotbar Layout",
+                options,
+                ModPracticeHotbarOptions.GetSelectedLayoutIndex(),
+                null);
+
+            if (choice == null)
+            {
+                return null;
+            }
+
+            GameObject row = GetChoiceRowRoot(contentTransform, choice.transform);
+            if (row == null)
+            {
+                return null;
+            }
+
+            row.name = PracticeChoiceRowObjectName;
+            return row;
+        }
+
+        private static void ConfigurePracticeChoiceRow(GameObject row)
+        {
+            if (row == null)
+            {
+                return;
+            }
+
+            uGUI_Choice choice = row.GetComponentInChildren<uGUI_Choice>(true);
+            if (choice == null)
+            {
+                return;
+            }
+
+            Text labelText = FindChoiceLabelText(row, choice.currentText);
+            if (labelText != null)
+            {
+                labelText.text = "Hotbar Layout";
+                labelText.resizeTextForBestFit = false;
+                labelText.horizontalOverflow = HorizontalWrapMode.Overflow;
+                TranslationLiveUpdate labelTranslation = labelText.GetComponent<TranslationLiveUpdate>();
+                if (labelTranslation != null)
+                {
+                    UnityEngine.Object.Destroy(labelTranslation);
+                }
+
+                uGUI_Text labelLocalizer = labelText.GetComponent<uGUI_Text>();
+                if (labelLocalizer != null)
+                {
+                    UnityEngine.Object.Destroy(labelLocalizer);
+                }
+            }
+
+            if (choice.currentText != null)
+            {
+                choice.currentText.enabled = true;
+                choice.currentText.color = new Color(1f, 1f, 1f, 0f);
+                choice.currentText.raycastTarget = false;
+            }
+
+            int selectedIndex = ModPracticeHotbarOptions.GetSelectedLayoutIndex();
+            string[] options = BuildPracticeHotbarOptionLabels();
+            choice.SetOptions(options);
+            choice.onValueChanged = new uGUI_Choice.ChoiceEvent();
+            choice.onValueChanged.AddListener(delegate(int value)
+            {
+                ModPracticeHotbarOptions.SetSelectedLayoutIndex(value);
+                RefreshPracticeChoicePreview(choice, value);
+            });
+            choice.value = selectedIndex;
+            RefreshPracticeChoicePreview(choice, selectedIndex);
+        }
+
+        private static void RefreshPracticeChoicePreview(uGUI_Choice choice, int layoutIndex)
+        {
+            if (choice == null || choice.currentText == null)
+            {
+                return;
+            }
+
+            Image previewImage = EnsurePracticePreviewImage(choice);
+            if (previewImage == null)
+            {
+                return;
+            }
+
+            string previewPath;
+            if (!ModPracticeSaveCatalog.TryGetHotbarLayoutPreviewPath(layoutIndex, out previewPath))
+            {
+                previewImage.enabled = false;
+                return;
+            }
+
+            Sprite sprite = LoadPreviewSprite(previewPath);
+            previewImage.sprite = sprite;
+            previewImage.enabled = sprite != null;
+        }
+
+        private static Image EnsurePracticePreviewImage(uGUI_Choice choice)
+        {
+            RectTransform choiceRectTransform = choice.transform as RectTransform;
+            if (choiceRectTransform == null)
+            {
+                return null;
+            }
+
+            Transform existingTransform = choiceRectTransform.Find(PracticePreviewImageObjectName);
+            Image previewImage = existingTransform != null ? existingTransform.GetComponent<Image>() : null;
+            if (previewImage == null)
+            {
+                GameObject previewObject = new GameObject(PracticePreviewImageObjectName, typeof(RectTransform), typeof(Image));
+                previewObject.transform.SetParent(choiceRectTransform, false);
+                previewImage = previewObject.GetComponent<Image>();
+            }
+
+            RectTransform rectTransform = previewImage.rectTransform;
+            rectTransform.anchorMin = Vector2.zero;
+            rectTransform.anchorMax = Vector2.one;
+            rectTransform.pivot = new Vector2(0.5f, 0.5f);
+            rectTransform.offsetMin = new Vector2(34f, 2f);
+            rectTransform.offsetMax = new Vector2(-34f, -2f);
+            rectTransform.localScale = Vector3.one;
+
+            previewImage.preserveAspect = true;
+            previewImage.raycastTarget = false;
+            previewImage.color = Color.white;
+            previewImage.transform.SetSiblingIndex(0);
+
+            return previewImage;
+        }
+
+        private static Sprite LoadPreviewSprite(string previewPath)
+        {
+            if (string.IsNullOrEmpty(previewPath) || !File.Exists(previewPath))
+            {
+                return null;
+            }
+
+            Sprite sprite;
+            if (HotbarPreviewSprites.TryGetValue(previewPath, out sprite))
+            {
+                return sprite;
+            }
+
+            byte[] imageBytes = File.ReadAllBytes(previewPath);
+            Texture2D texture = new Texture2D(2, 2, TextureFormat.ARGB32, false);
+            if (!texture.LoadImage(imageBytes))
+            {
+                UnityEngine.Object.Destroy(texture);
+                return null;
+            }
+
+            texture.name = Path.GetFileNameWithoutExtension(previewPath);
+            texture.wrapMode = TextureWrapMode.Clamp;
+            texture.filterMode = FilterMode.Bilinear;
+
+            sprite = Sprite.Create(
+                texture,
+                new Rect(0f, 0f, texture.width, texture.height),
+                new Vector2(0.5f, 0.5f),
+                100f);
+
+            HotbarPreviewSprites[previewPath] = sprite;
+            return sprite;
+        }
+
+        private static Text FindChoiceLabelText(GameObject row, Text currentValueText)
+        {
+            if (row == null)
+            {
+                return null;
+            }
+
+            Text[] texts = row.GetComponentsInChildren<Text>(true);
+            for (int i = 0; i < texts.Length; i++)
+            {
+                Text text = texts[i];
+                if (text != null && !ReferenceEquals(text, currentValueText))
+                {
+                    return text;
+                }
+            }
+
+            return null;
+        }
+
+        private static string[] BuildPracticeHotbarOptionLabels()
+        {
+            string[] options = new string[ModPracticeHotbarOptions.LayoutCountValue];
+            for (int i = 0; i < options.Length; i++)
+            {
+                options[i] = ModPracticeHotbarOptions.GetDisplayName(i);
+            }
+
+            return options;
+        }
+
+        private static GameObject GetChoiceRowRoot(Transform contentTransform, Transform choiceTransform)
+        {
+            if (contentTransform == null || choiceTransform == null)
+            {
+                return null;
+            }
+
+            Transform current = choiceTransform;
+            while (current != null && current.parent != null && current.parent != contentTransform)
+            {
+                current = current.parent;
+            }
+
+            if (current != null && current.parent == contentTransform)
+            {
+                return current.gameObject;
+            }
+
+            return null;
         }
 
         private static int EnsureTab(uGUI_OptionsPanel panel, string label, out bool wasAdded)
