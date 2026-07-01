@@ -24,7 +24,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
         private const string LeaderboardPlaceholderObjectName = "ModLeaderboardPlaceholder";
         private const string UpdatePanelTitleText = "Update Beta-0.6.2";
         // Edit this message each release to show the newest client changes on the main menu.
-        private const string UpdatePanelBodyText = "This Updated Did some Small Cleanup and Fixes to the End Section, QEP Quickdeath and New Cure Clip Practice Save Files.";
+        private const string UpdatePanelBodyText = "This Update Did some Small Cleanup and Fixes to the End Section, QEP Quickdeath and New Cure Clip Practice Save Files.";
         private const string UpdatePanelBodyObjectName = "ModUpdatePanelBody";
         private const int WatermarkFontSize = 18;
         private const int QueueButtonFontSize = 34;
