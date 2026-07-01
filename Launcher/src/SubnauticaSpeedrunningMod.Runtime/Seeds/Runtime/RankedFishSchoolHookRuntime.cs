@@ -147,11 +147,8 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
 
         private static bool IsEnabled()
         {
-            ModSeedRuntimeProfile profile = ModSeedRuntimeHost.GetProfile();
-            return profile != null &&
-                   ModSeedRuntimeHost.ShouldApplyAnyModdedSeedRules() &&
-                   ModSeedRuntimeHost.IsSupportedGameplayMode() &&
-                   profile.DisableFishSchools;
+            // Keep fish schools suppressed across every session type for now, including vanilla play.
+            return true;
         }
 
         private static Type ResolveType(string typeName)

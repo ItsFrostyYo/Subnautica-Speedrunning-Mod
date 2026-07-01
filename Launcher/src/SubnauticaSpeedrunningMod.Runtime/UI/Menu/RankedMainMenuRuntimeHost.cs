@@ -22,9 +22,14 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
         private const string BetterRngSavedGamesButtonLabel = "Start a New BetterRNG Save";
         private const string FutureUpdatePlaceholderText = "Coming in a Future Update";
         private const string LeaderboardPlaceholderObjectName = "ModLeaderboardPlaceholder";
+        private const string UpdatePanelTitleText = "Update Beta-0.6.2";
+        // Edit this message each release to show the newest client changes on the main menu.
+        private const string UpdatePanelBodyText = "This Updated Did some Small Cleanup and Fixes to the End Section, QEP Quickdeath and New Cure Clip Practice Save Files.";
+        private const string UpdatePanelBodyObjectName = "ModUpdatePanelBody";
         private const int WatermarkFontSize = 18;
         private const int QueueButtonFontSize = 34;
-        private const int PanelTitleFontSize = 18;
+        private const int PanelTitleFontSize = 17;
+        private const int UpdatePanelBodyFontSize = 14;
         private const int DisabledQueueButtonFontSize = 19;
         private const int DisabledModeSelectButtonFontSize = 24;
         private const int PracticeNewGameButtonFontSize = 34;
@@ -381,6 +386,16 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
             else
             {
                 SyncPracticeSaveGroup(rightSide);
+            }
+
+            if (!_leaderboardHomePatched)
+            {
+                EnsureLeaderboardHomeGroup(rightSide);
+                _leaderboardHomePatched = true;
+            }
+            else
+            {
+                SyncLeaderboardHomeGroup(rightSide);
             }
 
             SyncSingleplayerPanelTitle(rightSide);
@@ -754,8 +769,9 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
                 UnityEngine.Object.Destroy(childrenToDestroy[i]);
             }
 
-            EnsurePanelPlaceholder(leaderboardGroup, content, LeaderboardPlaceholderObjectName, FutureUpdatePlaceholderText);
-            SetPanelTitle(leaderboardGroup, "Leaderboard");
+            ConfigureUpdatePanelLayout(leaderboardGroup);
+            EnsureUpdatePanelBodyText(leaderboardGroup, UpdatePanelBodyText);
+            SetPanelTitle(leaderboardGroup, UpdatePanelTitleText);
         }
 
         private static void ConfigurePracticeSaveGroup(GameObject practiceSaveGroup)
@@ -1466,7 +1482,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
                 return;
             }
 
-            leaderboardGroup.SetActive(false);
+            ConfigureLeaderboardHomeGroup(leaderboardGroup);
         }
 
         private static void SuppressBuiltInWatermarks()
@@ -1519,10 +1535,50 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
             }
 
             GameObject leaderboardGroup = FindGroup(rightSide, LeaderboardHomeGroupName);
-            if (leaderboardGroup != null && leaderboardGroup.activeSelf)
+            if (leaderboardGroup == null)
+            {
+                return;
+            }
+
+            bool shouldBeVisible = ShouldShowUpdateHomePanel(rightSide, leaderboardGroup);
+            if (shouldBeVisible)
+            {
+                leaderboardGroup.transform.SetAsLastSibling();
+                if (!leaderboardGroup.activeSelf)
+                {
+                    leaderboardGroup.SetActive(true);
+                }
+            }
+            else if (leaderboardGroup.activeSelf)
             {
                 leaderboardGroup.SetActive(false);
             }
+        }
+
+        private static bool ShouldShowUpdateHomePanel(MainMenuRightSide rightSide, GameObject leaderboardGroup)
+        {
+            if (rightSide == null || leaderboardGroup == null)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < rightSide.groups.Count; i++)
+            {
+                GameObject group = rightSide.groups[i];
+                if (group == null ||
+                    group == leaderboardGroup ||
+                    group == rightSide.homeGroup)
+                {
+                    continue;
+                }
+
+                if (group.activeSelf)
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         private static void SetPanelTitle(GameObject panelGroup, string title)
@@ -1534,6 +1590,44 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
 
             EnsureCustomPanelTitle(panelGroup, title);
             HideOriginalPanelTitles(panelGroup);
+        }
+
+        private static void ConfigureUpdatePanelLayout(GameObject panelGroup)
+        {
+            if (panelGroup == null)
+            {
+                return;
+            }
+
+            panelGroup.transform.SetAsLastSibling();
+
+            RectTransform panelRect = panelGroup.GetComponent<RectTransform>();
+            if (panelRect != null)
+            {
+                panelRect.anchorMin = new Vector2(1f, 0.5f);
+                panelRect.anchorMax = new Vector2(1f, 0.5f);
+                panelRect.pivot = new Vector2(1f, 0.5f);
+                panelRect.anchoredPosition = new Vector2(-18f, -34f);
+                panelRect.sizeDelta = new Vector2(420f, 300f);
+                panelRect.localScale = Vector3.one;
+            }
+
+            Transform scrollViewTransform = panelGroup.transform.Find("Scroll View");
+            RectTransform scrollViewRect = scrollViewTransform != null ? scrollViewTransform.GetComponent<RectTransform>() : null;
+            if (scrollViewRect != null)
+            {
+                scrollViewRect.anchorMin = new Vector2(0f, 0f);
+                scrollViewRect.anchorMax = new Vector2(1f, 1f);
+                scrollViewRect.offsetMin = new Vector2(14f, 14f);
+                scrollViewRect.offsetMax = new Vector2(-14f, -46f);
+                scrollViewRect.localScale = Vector3.one;
+            }
+
+            Transform scrollbarTransform = panelGroup.transform.Find("Scroll View/Scrollbar Vertical");
+            if (scrollbarTransform != null)
+            {
+                scrollbarTransform.gameObject.SetActive(false);
+            }
         }
 
         private static void SetButtonLabelFontSize(GameObject root, int fontSize)
@@ -1678,6 +1772,61 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
             placeholderText.fontSize = Math.Max(placeholderText.fontSize, 17);
         }
 
+        private static void EnsureUpdatePanelBodyText(GameObject panelGroup, string textValue)
+        {
+            if (panelGroup == null)
+            {
+                return;
+            }
+
+            Transform existingTransform = panelGroup.transform.Find(UpdatePanelBodyObjectName);
+            Text bodyText = existingTransform != null ? existingTransform.GetComponent<Text>() : null;
+            if (bodyText == null)
+            {
+                Text template = panelGroup.GetComponentInChildren<Text>(true);
+                if (template == null)
+                {
+                    return;
+                }
+
+                GameObject bodyObject = UnityEngine.Object.Instantiate(template.gameObject, panelGroup.transform, false);
+                bodyObject.name = UpdatePanelBodyObjectName;
+
+                uGUI_Text localizer = bodyObject.GetComponent<uGUI_Text>();
+                if (localizer != null)
+                {
+                    UnityEngine.Object.Destroy(localizer);
+                }
+
+                bodyText = bodyObject.GetComponent<Text>();
+                if (bodyText == null)
+                {
+                    return;
+                }
+            }
+
+            RectTransform rectTransform = bodyText.rectTransform;
+            rectTransform.SetParent(panelGroup.transform, false);
+            rectTransform.SetAsLastSibling();
+            rectTransform.anchorMin = new Vector2(0f, 1f);
+            rectTransform.anchorMax = new Vector2(1f, 1f);
+            rectTransform.pivot = new Vector2(0f, 1f);
+            rectTransform.anchoredPosition = new Vector2(20f, -54f);
+            rectTransform.sizeDelta = new Vector2(-40f, 196f);
+            rectTransform.localScale = Vector3.one;
+
+            bodyText.text = textValue;
+            bodyText.fontSize = UpdatePanelBodyFontSize;
+            bodyText.alignment = TextAnchor.UpperLeft;
+            bodyText.horizontalOverflow = HorizontalWrapMode.Wrap;
+            bodyText.verticalOverflow = VerticalWrapMode.Overflow;
+            bodyText.raycastTarget = false;
+            bodyText.resizeTextForBestFit = false;
+            bodyText.color = Color.white;
+            bodyText.supportRichText = true;
+            bodyText.gameObject.SetActive(true);
+        }
+
         private static void HideOriginalPanelTitles(GameObject panelGroup)
         {
             Text[] texts = panelGroup.GetComponentsInChildren<Text>(true);
@@ -1695,7 +1844,8 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
                     string.Equals(text.text, "New Game", StringComparison.OrdinalIgnoreCase) ||
                     string.Equals(text.text, ModPracticeSaveCatalog.GetPrimaryCategoryDisplayName(), StringComparison.OrdinalIgnoreCase) ||
                     string.Equals(text.text, "Queue Ranked Matches", StringComparison.OrdinalIgnoreCase) ||
-                    string.Equals(text.text, "Leaderboard", StringComparison.OrdinalIgnoreCase))
+                    string.Equals(text.text, "Leaderboard", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(text.text, UpdatePanelTitleText, StringComparison.OrdinalIgnoreCase))
                 {
                     text.gameObject.SetActive(false);
                 }
