@@ -15,6 +15,7 @@ namespace SubnauticaSpeedrunningMod.Runtime
         private static string _practiceCategory = string.Empty;
         private static string _practiceSaveId = string.Empty;
         private static bool _practiceSaveTimerEnabled;
+        private static bool _practiceSaveStartsWithSuperSeaglide;
 
         public static ModClientLaunchMode LaunchMode
         {
@@ -51,6 +52,11 @@ namespace SubnauticaSpeedrunningMod.Runtime
             get { return _practiceSaveId; }
         }
 
+        public static bool PracticeSaveStartsWithSuperSeaglide
+        {
+            get { return IsPracticeSaveSelected && _practiceSaveStartsWithSuperSeaglide; }
+        }
+
         public static void SelectVanilla()
         {
             _launchMode = ModClientLaunchMode.Vanilla;
@@ -75,12 +81,13 @@ namespace SubnauticaSpeedrunningMod.Runtime
             ClearPracticeSelection();
         }
 
-        public static void SelectPracticeSave(string category, string saveId, bool enableTimer)
+        public static void SelectPracticeSave(string category, string saveId, bool enableTimer, bool startsWithSuperSeaglide)
         {
             _launchMode = ModClientLaunchMode.ModPracticeSave;
             _practiceCategory = category ?? string.Empty;
             _practiceSaveId = saveId ?? string.Empty;
             _practiceSaveTimerEnabled = enableTimer;
+            _practiceSaveStartsWithSuperSeaglide = startsWithSuperSeaglide;
         }
 
         public static void ResetForMainMenu()
@@ -94,6 +101,7 @@ namespace SubnauticaSpeedrunningMod.Runtime
             _practiceCategory = string.Empty;
             _practiceSaveId = string.Empty;
             _practiceSaveTimerEnabled = false;
+            _practiceSaveStartsWithSuperSeaglide = false;
         }
     }
 }

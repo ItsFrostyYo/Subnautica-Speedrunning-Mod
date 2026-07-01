@@ -40,6 +40,17 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
             PatchPanel(panel);
         }
 
+        internal static bool IsLivePanelVisible()
+        {
+            if (uGUI_MainMenu.main == null)
+            {
+                return false;
+            }
+
+            uGUI_OptionsPanel panel = UnityEngine.Object.FindObjectOfType<uGUI_OptionsPanel>();
+            return panel != null && panel.isActiveAndEnabled && panel.gameObject.activeInHierarchy;
+        }
+
         internal static void PatchPanel(uGUI_OptionsPanel panel)
         {
             if (panel == null || uGUI_MainMenu.main == null)

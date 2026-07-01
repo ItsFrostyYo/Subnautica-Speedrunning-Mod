@@ -31,7 +31,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
         private const int PracticeNewGameDisabledButtonFontSize = 24;
         private const int BetterRngSavedGamesButtonFontSize = 22;
         private const float ComingSoonRowAlpha = 0.42f;
-        private const float MenuPatchRetryIntervalSeconds = 0.25f;
+        private const float MenuPatchRetryIntervalSeconds = 1.25f;
         private const float WatermarkScanIntervalSeconds = 2f;
         private const float PersistentWatermarkRetryIntervalSeconds = 2f;
         private const string FallbackWatermarkRootName = "SubnauticaSpeedrunningMod.FallbackWatermark";
@@ -103,12 +103,35 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
                 return;
             }
 
+            bool optionsVisible = ModOptionsPanelRuntime.IsLivePanelVisible();
+            if (!IsMainMenuPatchStable() || optionsVisible)
+            {
+                TrySuppressMainMenuHomePanel();
+                if (optionsVisible)
+                {
+                    ModOptionsPanelRuntime.RefreshLivePanel();
+                }
+
+                _nextMenuPatchAttemptAt = Time.unscaledTime;
+                return;
+            }
+
             if (Time.unscaledTime >= _nextMenuPatchAttemptAt)
             {
                 TrySuppressMainMenuHomePanel();
                 ModOptionsPanelRuntime.RefreshLivePanel();
                 _nextMenuPatchAttemptAt = Time.unscaledTime + MenuPatchRetryIntervalSeconds;
             }
+        }
+
+        private static bool IsMainMenuPatchStable()
+        {
+            return _homePanelSuppressed &&
+                   _leftMenuPatched &&
+                   _rankedModeSelectPatched &&
+                   _rankedQueuePatched &&
+                   _rankedPracticeNewGamePatched &&
+                   _practiceSavePatched;
         }
 
         private static bool ShouldRefreshWatermarkPresentation()
@@ -392,6 +415,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
                 GameObject practiceObject = UnityEngine.Object.Instantiate(playButton.gameObject, menuButtons, false);
                 practiceObject.name = "ButtonPractice";
                 practiceObject.transform.SetSiblingIndex(playButton.transform.GetSiblingIndex());
+                RemoveLocalizationComponents(practiceObject);
                 SetButtonLabel(practiceObject, "Practice");
 
                 Button practiceButton = practiceObject.GetComponent<Button>();
@@ -418,6 +442,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
                 GameObject modObject = UnityEngine.Object.Instantiate(playButton.gameObject, menuButtons, false);
                 modObject.name = "ButtonRanked";
                 modObject.transform.SetSiblingIndex(playButton.transform.GetSiblingIndex());
+                RemoveLocalizationComponents(modObject);
                 SetButtonLabel(modObject, "Ranked");
 
                 Button modButton = modObject.GetComponent<Button>();
@@ -795,7 +820,11 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
                 PracticeNewGameButtonFontSize,
                 delegate
                 {
-                    ModClientSessionMode.SelectPracticeSave(definition.CategoryId, definition.SaveId, definition.TimerEnabled);
+                    ModClientSessionMode.SelectPracticeSave(
+                        definition.CategoryId,
+                        definition.SaveId,
+                        definition.TimerEnabled,
+                        definition.StartsWithSuperSeaglide);
                     ModPracticeSaveRuntimeHost.StartPracticeSave(definition);
                 });
         }
@@ -1137,6 +1166,34 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
             }
         }
 
+        private static void RemoveLocalizationComponents(GameObject root)
+        {
+            if (root == null)
+            {
+                return;
+            }
+
+            uGUI_Text[] localizers = root.GetComponentsInChildren<uGUI_Text>(true);
+            for (int i = 0; i < localizers.Length; i++)
+            {
+                uGUI_Text localizer = localizers[i];
+                if (localizer != null)
+                {
+                    UnityEngine.Object.Destroy(localizer);
+                }
+            }
+
+            TranslationLiveUpdate[] translationUpdates = root.GetComponentsInChildren<TranslationLiveUpdate>(true);
+            for (int i = 0; i < translationUpdates.Length; i++)
+            {
+                TranslationLiveUpdate translationUpdate = translationUpdates[i];
+                if (translationUpdate != null)
+                {
+                    UnityEngine.Object.Destroy(translationUpdate);
+                }
+            }
+        }
+
         private static void ConfigureActionRow(GameObject row, string label, bool isInteractable, int fontSize, UnityAction onClick)
         {
             if (row == null)
@@ -1151,6 +1208,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
                 return;
             }
 
+            RemoveLocalizationComponents(button.gameObject);
             SetButtonLabel(button.gameObject, label);
             SetButtonLabelFontSize(button.gameObject, fontSize);
             button.onClick = new Button.ButtonClickedEvent();

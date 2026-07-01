@@ -16,12 +16,20 @@ namespace SubnauticaSpeedrunningMod.Runtime.Practice
                 AnyPercentSurvivalGlitchedCategoryId,
                 "QEPQuickdeath",
                 "QEP Quickdeath",
-                timerEnabled: false),
+                timerEnabled: false,
+                startsWithSuperSeaglide: false),
+            new ModPracticeSaveDefinition(
+                AnyPercentSurvivalGlitchedCategoryId,
+                "CureClip",
+                "Cure Clip",
+                timerEnabled: false,
+                startsWithSuperSeaglide: false),
             new ModPracticeSaveDefinition(
                 AnyPercentSurvivalGlitchedCategoryId,
                 "ASGEndSection",
                 "End Section",
-                timerEnabled: true)
+                timerEnabled: true,
+                startsWithSuperSeaglide: false)
         };
 
         public static IList<ModPracticeSaveDefinition> GetPrimaryCategoryDefinitions()
@@ -123,12 +131,18 @@ namespace SubnauticaSpeedrunningMod.Runtime.Practice
 
     internal struct ModPracticeSaveDefinition
     {
-        public ModPracticeSaveDefinition(string categoryId, string saveId, string displayName, bool timerEnabled)
+        public ModPracticeSaveDefinition(
+            string categoryId,
+            string saveId,
+            string displayName,
+            bool timerEnabled,
+            bool startsWithSuperSeaglide)
         {
             CategoryId = categoryId ?? string.Empty;
             SaveId = saveId ?? string.Empty;
             DisplayName = displayName ?? string.Empty;
             TimerEnabled = timerEnabled;
+            StartsWithSuperSeaglide = startsWithSuperSeaglide;
         }
 
         public string CategoryId { get; private set; }
@@ -138,5 +152,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.Practice
         public string DisplayName { get; private set; }
 
         public bool TimerEnabled { get; private set; }
+
+        public bool StartsWithSuperSeaglide { get; private set; }
     }
 }
