@@ -117,6 +117,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.RunTracking
         {
             UpdateSaveContext();
             ModPracticeSaveProtectionRuntime.EnsureInstalled();
+            ModPracticeSuperSeaglideRuntime.EnsureInstalled();
             ModSeedRuntimeHost.EnsureStartupHooksInstalled();
             RefreshActiveSeedForSaveContext();
             bool rankedPracticeActive = ModSeedRuntimeHost.IsRankedSingleplayerSeedActive();
@@ -124,6 +125,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.RunTracking
             bool practiceSaveTimedActive = IsPracticeSaveTimedRunActive();
             UpdateDeathLoadingState();
             UpdateGameplayState();
+            ModPracticeSuperSeaglideRuntime.Update(_state == ModGameStateKind.InGame);
             ModSeedRuntimeHost.UpdateSharedRuleState(
                 _currentSaveSlot,
                 _state == ModGameStateKind.MainMenu,
