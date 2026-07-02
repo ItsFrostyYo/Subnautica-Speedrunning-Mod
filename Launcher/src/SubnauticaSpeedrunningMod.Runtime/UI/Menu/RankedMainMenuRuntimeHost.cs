@@ -22,9 +22,9 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
         private const string BetterRngSavedGamesButtonLabel = "Start a New BetterRNG Save";
         private const string FutureUpdatePlaceholderText = "Coming in a Future Update";
         private const string LeaderboardPlaceholderObjectName = "ModLeaderboardPlaceholder";
-        private const string UpdatePanelTitleText = "Update Beta-0.6.2";
+        private const string UpdatePanelTitleText = "Update Beta-0.7.0";
         // Edit this message each release to show the newest client changes on the main menu.
-        private const string UpdatePanelBodyText = "This Update Did some Small Cleanup and Fixes to the End Section, QEP Quickdeath and New Cure Clip Practice Save Files.";
+        private const string UpdatePanelBodyText = "This Update Adds 4 New Practice Save Files, Alien Thermal Plant Death, Aurora Clip, Mountain Clip and Pre-Aurora Crafting, with More Customizable Options for Health and Time of Day.";
         private const string UpdatePanelBodyObjectName = "ModUpdatePanelBody";
         private const int WatermarkFontSize = 18;
         private const int QueueButtonFontSize = 34;
