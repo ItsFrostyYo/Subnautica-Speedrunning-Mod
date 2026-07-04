@@ -175,26 +175,26 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
         public static List<ModSpawnMultiplierEntry> CreateDefaultFragmentEntries()
         {
             List<ModSpawnMultiplierEntry> entries = CreateSpawnEntries(FragmentTechTypeNames, 1f);
-            ApplySeededSpawnRange(entries, "SeaglideFragment", 1.5f, 4.5f, 0.75f);
-            ApplySeededSpawnRange(entries, "ConstructorFragment", 2f, 4f, 0.5f);
-            ApplySeededSpawnRange(entries, "MoonpoolFragment", 2f, 3.5f, 0.5f);
-            ApplySeededSpawnRange(entries, "CyclopsBridgeFragment", 1.5f, 4f, 0.5f);
-            ApplySeededSpawnRange(entries, "CyclopsHullFragment", 1.5f, 4f, 0.5f);
-            ApplySeededSpawnRange(entries, "CyclopsEngineFragment", 1.5f, 3.5f, 0.5f);
+            ApplySeededSpawnRange(entries, "SeaglideFragment", 2f, 3.5f, 0.75f);
+            ApplySeededSpawnRange(entries, "ConstructorFragment", 2f, 3.5f, 0.75f);
+            ApplySeededSpawnRange(entries, "MoonpoolFragment", 1.5f, 3.5f, 0.75f);
+            ApplySeededSpawnRange(entries, "CyclopsBridgeFragment", 1.5f, 3f, 0.75f);
+            ApplySeededSpawnRange(entries, "CyclopsHullFragment", 1.5f, 3f, 0.75f);
+            ApplySeededSpawnRange(entries, "CyclopsEngineFragment", 1.5f, 3f, 0.75f);
             return entries;
         }
 
         public static List<ModSpawnMultiplierEntry> CreateDefaultResourceEntries()
         {
             List<ModSpawnMultiplierEntry> entries = CreateSpawnEntries(ResourceTechTypeNames, 1f);
-            ApplySeededSpawnRange(entries, "ScrapMetal", 2f, 5f, 0.5f);
-            ApplySeededSpawnRange(entries, "SandstoneChunk", 1.5f, 4f, 0.5f);
-            ApplySeededSpawnRange(entries, "ShaleChunk", 1.5f, 4f, 0.5f);
-            ApplySeededSpawnRange(entries, "Lithium", 2f, 4f, 0.4f);
-            ApplySeededSpawnRange(entries, "Sulphur", 2f, 5f, 0.5f);
-            ApplySeededSpawnRange(entries, "Kyanite", 2f, 4f, 0.4f);
-            ApplySeededSpawnRange(entries, "AluminumOxide", 1.5f, 3.5f, 0.5f);
-            ApplySeededSpawnRange(entries, "JellyPlant", 2f, 4f, 0.5f);
+            ApplySeededSpawnRange(entries, "ScrapMetal", 2f, 3.5f, 0.75f);
+            ApplySeededSpawnRange(entries, "SandstoneChunk", 2f, 3.5f, 0.75f);
+            ApplySeededSpawnRange(entries, "ShaleChunk", 2f, 3.5f, 0.75f);
+            ApplySeededSpawnRange(entries, "Lithium", 2f, 3.5f, 0.75f);
+            ApplySeededSpawnRange(entries, "Sulphur", 2f, 3.5f, 0.75f);
+            ApplySeededSpawnRange(entries, "Kyanite", 2f, 3.5f, 0.75f);
+            ApplySeededSpawnRange(entries, "AluminumOxide", 1.5f, 3f, 0.75f);
+            ApplySeededSpawnRange(entries, "JellyPlant", 1.5f, 3f, 0.75f);
             ApplySeededSpawnRange(entries, "Nickel", 3f, 10f, 1f);
             return entries;
         }
@@ -235,7 +235,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
                 new ModBiomeMultiplierEntry
                 {
                     Name = "SafeShallows_ShellTunnel",
-                    ChanceMultiplier = 2.5f
+                    ChanceMultiplier = 3f
                 }
             };
         }
@@ -365,20 +365,18 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
             AddBiomeEntries(entries, SparseReefBiomes);
             AddBiomeEntries(entries, SeaTreaderPathBiomes);
             AddBiomeEntries(entries, MountainsBiomes);
-            AddBiomeEntries(entries, InactiveLavaZoneCastleBiomes);
 
-            ApplySeededBiomeRange(entries, new[] { "SafeShallows_TechSite", "SafeShallows_TechSite_Barrier", "SafeShallows_TechSite_Scattered" }, 2f, 4.5f, 0.5f);
-            ApplySeededBiomeRange(entries, new[] { "SafeShallows_CaveWall", "SafeShallows_CaveSpecial", "SafeShallows_Wall", "SafeShallows_CaveFloor" }, 1.5f, 3.5f, 0.5f);
-            ApplySeededBiomeRange(entries, new[] { "SafeShallows_ShellTunnelHuge" }, 1.5f, 6f, 0.75f);
-            ApplySeededBiomeRange(entries, new[] { "Kelp_GrassSparse", "Kelp_GrassDense", "Kelp_Sand", "Kelp_Wall" }, 1.5f, 3.5f, 0.5f);
-            ApplySeededBiomeRange(entries, new[] { "Kelp_CaveWall", "Kelp_CaveFloor", "Kelp_CaveSpecial", "Kelp_ShellTunnel" }, 1.5f, 3.5f, 0.5f);
-            ApplySeededBiomeRange(entries, new[] { "SparseReef_Wall", "SparseReef_Spike", "SparseReef_DeepWall", "SparseReef_CaveFloor", "SparseReef_CaveWall", "SparseReef_CaveCoral", "SparseReef_DeepCoral", "SparseReef_DeepFloor" }, 1.5f, 3.5f, 0.5f);
-            ApplySeededBiomeRange(entries, new[] { "SparseReef_Techsite", "SparseReef_Techsite_Barrier", "SparseReef_Techsite_Scatter", "SparseReef_Sand" }, 1.5f, 4f, 0.5f);
-            ApplySeededBiomeRange(entries, new[] { "SeaTreaderPath_Path", "SeaTreaderPath_Grass", "SeaTreaderPath_Rock", "SeaTreaderPath_CaveWall", "SeaTreaderPath_CaveFloor", "SeaTreaderPath_CaveCeiling" }, 1.5f, 3.5f, 0.5f);
-            ApplySeededBiomeRange(entries, new[] { "SeaTreaderPath_TechSite", "SeaTreaderPath_TechSite_Barrier", "SeaTreaderPath_TechSite_Scatter", "SeaTreaderPath_Sand" }, 1.5f, 4f, 0.5f);
-            ApplySeededBiomeRange(entries, new[] { "Mountains_ThermalVent", "Mountains_Rock", "Mountains_CaveFloor", "Mountains_CaveWall", "Mountains_IslandCaveWall", "Mountains_CaveCeiling", "Mountains_IslandCaveCeiling", "Mountains_IslandCaveFloor" }, 1.5f, 4f, 0.5f);
-            ApplySeededBiomeRange(entries, new[] { "Mountains_Sand", "Mountains_Grass", "Mountains_IslandSand", "Mountains_IslandGrass", "Mountains_TechSite", "Mountains_TechSite_Barrier", "Mountains_TechSite_Scatter" }, 1.5f, 4f, 0.5f);
-            ApplySeededBiomeRange(entries, InactiveLavaZoneCastleBiomes, 2f, 4.5f, 0.75f);
+            ApplySeededBiomeRange(entries, new[] { "SafeShallows_TechSite", "SafeShallows_TechSite_Barrier", "SafeShallows_TechSite_Scattered" }, 2f, 3.5f, 0.75f);
+            ApplySeededBiomeRange(entries, new[] { "SafeShallows_CaveWall", "SafeShallows_CaveSpecial", "SafeShallows_Wall", "SafeShallows_CaveFloor" }, 2.0f, 3.5f, 0.75f);
+            ApplySeededBiomeRange(entries, new[] { "SafeShallows_ShellTunnelHuge" }, 2.0f, 3.5f, 0.75f);
+            ApplySeededBiomeRange(entries, new[] { "Kelp_GrassSparse", "Kelp_GrassDense", "Kelp_Sand", "Kelp_Wall" }, 2.0f, 3.5f, 0.75f);
+            ApplySeededBiomeRange(entries, new[] { "Kelp_CaveWall", "Kelp_CaveFloor", "Kelp_CaveSpecial", "Kelp_ShellTunnel" }, 2.0f, 3.5f, 0.75f);
+            ApplySeededBiomeRange(entries, new[] { "SparseReef_Wall", "SparseReef_Spike", "SparseReef_DeepWall", "SparseReef_CaveFloor", "SparseReef_CaveWall", "SparseReef_CaveCoral", "SparseReef_DeepCoral", "SparseReef_DeepFloor" }, 1.5f, 3f, 0.75f);
+            ApplySeededBiomeRange(entries, new[] { "SparseReef_Techsite", "SparseReef_Techsite_Barrier", "SparseReef_Techsite_Scatter", "SparseReef_Sand" }, 1.5f, 3f, 0.75f);
+            ApplySeededBiomeRange(entries, new[] { "SeaTreaderPath_Path", "SeaTreaderPath_Grass", "SeaTreaderPath_Rock", "SeaTreaderPath_CaveWall", "SeaTreaderPath_CaveFloor", "SeaTreaderPath_CaveCeiling" }, 1.5f, 3f, 0.75f);
+            ApplySeededBiomeRange(entries, new[] { "SeaTreaderPath_TechSite", "SeaTreaderPath_TechSite_Barrier", "SeaTreaderPath_TechSite_Scatter", "SeaTreaderPath_Sand" }, 1.5f, 3f, 0.75f);
+            ApplySeededBiomeRange(entries, new[] { "Mountains_ThermalVent", "Mountains_Rock", "Mountains_CaveFloor", "Mountains_CaveWall", "Mountains_IslandCaveWall", "Mountains_CaveCeiling", "Mountains_IslandCaveCeiling", "Mountains_IslandCaveFloor" }, 1.5f, 3f, 0.75f);
+            ApplySeededBiomeRange(entries, new[] { "Mountains_Sand", "Mountains_Grass", "Mountains_IslandSand", "Mountains_IslandGrass", "Mountains_TechSite", "Mountains_TechSite_Barrier", "Mountains_TechSite_Scatter" }, 1.5f, 3f, 0.75f);
 
             return entries;
         }

@@ -208,7 +208,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
     [Serializable]
     public sealed class ModSurvivalSeedDefinition
     {
-        public const int CurrentTemplateVersion = 4;
+        public const int CurrentTemplateVersion = 6;
 
         [XmlElement("TemplateVersion")]
         public int TemplateVersion { get; set; }
@@ -449,19 +449,10 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
                     new ModCreativeSpawnRangeDefinition
                     {
                         Name = "Clip C",
-                        Weight = 0.75f,
+                        Weight = 1f,
                         MinX = -175f,
                         MaxX = -75f,
                         MinZ = 50f,
-                        MaxZ = 100f
-                    },
-                    new ModCreativeSpawnRangeDefinition
-                    {
-                        Name = "Clip A",
-                        Weight = 0.25f,
-                        MinX = -75f,
-                        MaxX = 50f,
-                        MinZ = 75f,
                         MaxZ = 100f
                     }
                 }

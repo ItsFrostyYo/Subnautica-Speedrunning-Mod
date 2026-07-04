@@ -139,7 +139,6 @@ namespace SubnauticaSpeedrunningMod.Runtime.RunTracking
             ModSeedWorldRuntime.Update(seedWorldActive, rankedPracticeActive && _state == ModGameStateKind.InGame);
 
             ConsistentScreenshotClip.Update(rankedPracticeActive && IsCreativeSingleplayerRunActive());
-            ModSeedSurveyTool.Update();
 
             if (_state == ModGameStateKind.Booting || _state == ModGameStateKind.MainMenu)
             {
@@ -217,9 +216,17 @@ namespace SubnauticaSpeedrunningMod.Runtime.RunTracking
                 return;
             }
 
+            if (ModClientSessionMode.IsBetterRngSingleplayerSelected)
+            {
+                _lastActivatedSeedSaveSlot = string.Empty;
+                _lastActivatedSeedMode = GameMode.None;
+                ModSeedStore.ResetSessionSelections();
+                return;
+            }
+
             bool createIfMissing =
                 !Utils.GetContinueMode() &&
-                (ModClientSessionMode.IsRankedSingleplayerPracticeSelected || ModClientSessionMode.IsBetterRngSingleplayerSelected);
+                ModClientSessionMode.IsRankedSingleplayerPracticeSelected;
 
             bool seedEnsured = ModSeedStore.EnsureSeedForSaveContext(saveSlot, mode, Utils.GetContinueMode(), createIfMissing);
             if (!seedEnsured && !ModSeedStore.IsSeedContextActive(saveSlot, mode))
@@ -1071,7 +1078,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.RunTracking
 
         private static bool IsBetterRngTimedRunActive()
         {
-            if (!ModSeedRuntimeHost.IsBetterRngSeedActive())
+            if (!ModClientSessionMode.IsBetterRngSingleplayerSelected)
             {
                 return false;
             }

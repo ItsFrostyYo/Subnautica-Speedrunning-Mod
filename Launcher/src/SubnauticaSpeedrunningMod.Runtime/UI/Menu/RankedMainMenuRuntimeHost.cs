@@ -13,7 +13,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
 {
     internal static class ModMainMenuRuntimeHost
     {
-        private static readonly string ModClientWatermark = "Subnautica Speedrunning Client [" + ModClientRelease.DisplayVersion + "]";
+        private static readonly string ModClientWatermark = "Subnautica Speedrunning Mod [" + ModClientRelease.DisplayVersion + "]";
         private const string ModModeSelectGroupName = "ModModeSelect";
         private const string ModQueueGroupName = "ModQueue";
         private const string ModPracticeNewGameGroupName = "ModPracticeNewGame";
@@ -22,9 +22,9 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
         private const string BetterRngSavedGamesButtonLabel = "Start a New BetterRNG Save";
         private const string FutureUpdatePlaceholderText = "Coming in a Future Update";
         private const string LeaderboardPlaceholderObjectName = "ModLeaderboardPlaceholder";
-        private const string UpdatePanelTitleText = "Update Beta-0.7.0";
+        private const string UpdatePanelTitleText = "Update Beta-0.7.3";
         // Edit this message each release to show the newest client changes on the main menu.
-        private const string UpdatePanelBodyText = "This Update Adds 4 New Practice Save Files, Alien Thermal Plant Death, Aurora Clip, Mountain Clip and Pre-Aurora Crafting, with More Customizable Options for Health and Time of Day.";
+        private const string UpdatePanelBodyText = "This Update Modifies Ranked Seeds Slightly to Regulate it for more Balancing, and some other small fixes like removing BetterRNG From applying in Vanilla Saves.";
         private const string UpdatePanelBodyObjectName = "ModUpdatePanelBody";
         private const int WatermarkFontSize = 18;
         private const int QueueButtonFontSize = 34;
@@ -398,7 +398,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
                 SyncLeaderboardHomeGroup(rightSide);
             }
 
-            SyncSingleplayerPanelTitle(rightSide);
+            RestoreVanillaSingleplayerPanelPresentation(rightSide);
             EnsureBetterRngSavedGamesButton(rightSide);
         }
 
@@ -418,7 +418,6 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
             }
 
             Transform menuButtons = playButton.transform.parent;
-            SetButtonLabel(playButton.gameObject, "Play");
             playButton.onClick.AddListener(new UnityAction(delegate
             {
                 ModClientSessionMode.SelectVanilla();
@@ -1350,12 +1349,6 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
                 }
             }
 
-            Transform playTransform = FindDescendantByName(menu.primaryOptions.transform, "ButtonPlay");
-            if (playTransform != null)
-            {
-                SetButtonLabel(playTransform.gameObject, "Play");
-            }
-
             Transform modTransform = FindDescendantByName(menu.primaryOptions.transform, "ButtonRanked");
             if (modTransform != null)
             {
@@ -1513,7 +1506,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
             SuppressBuiltInWatermarks();
         }
 
-        private static void SyncSingleplayerPanelTitle(MainMenuRightSide rightSide)
+        private static void RestoreVanillaSingleplayerPanelPresentation(MainMenuRightSide rightSide)
         {
             if (rightSide == null)
             {
@@ -1523,7 +1516,8 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
             GameObject savedGamesGroup = FindGroup(rightSide, "SavedGames");
             if (savedGamesGroup != null)
             {
-                SetPanelTitle(savedGamesGroup, "Play");
+                RemoveCustomPanelTitle(savedGamesGroup);
+                RestoreOriginalPanelTitles(savedGamesGroup);
             }
         }
 
@@ -1590,6 +1584,23 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
 
             EnsureCustomPanelTitle(panelGroup, title);
             HideOriginalPanelTitles(panelGroup);
+        }
+
+        private static void RemoveCustomPanelTitle(GameObject panelGroup)
+        {
+            if (panelGroup == null)
+            {
+                return;
+            }
+
+            Transform existingTransform = panelGroup.transform.Find("ModCustomPanelTitle");
+            if (existingTransform == null)
+            {
+                return;
+            }
+
+            existingTransform.gameObject.SetActive(false);
+            UnityEngine.Object.Destroy(existingTransform.gameObject);
         }
 
         private static void ConfigureUpdatePanelLayout(GameObject panelGroup)
@@ -1848,6 +1859,31 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
                     string.Equals(text.text, UpdatePanelTitleText, StringComparison.OrdinalIgnoreCase))
                 {
                     text.gameObject.SetActive(false);
+                }
+            }
+        }
+
+        private static void RestoreOriginalPanelTitles(GameObject panelGroup)
+        {
+            if (panelGroup == null)
+            {
+                return;
+            }
+
+            Text[] texts = panelGroup.GetComponentsInChildren<Text>(true);
+            for (int i = 0; i < texts.Length; i++)
+            {
+                Text text = texts[i];
+                if (text == null || string.Equals(text.gameObject.name, "ModCustomPanelTitle", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                if (string.Equals(text.text, "Play", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(text.text, "Play Singleplayer", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(text.text, "New Game", StringComparison.OrdinalIgnoreCase))
+                {
+                    text.gameObject.SetActive(true);
                 }
             }
         }
