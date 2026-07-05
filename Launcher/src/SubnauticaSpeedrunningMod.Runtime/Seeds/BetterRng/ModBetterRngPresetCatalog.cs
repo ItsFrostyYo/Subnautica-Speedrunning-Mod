@@ -27,6 +27,22 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
                 { "Kelp_VineBase", 5f }
             };
 
+        public static readonly Dictionary<string, Dictionary<string, float>> EntityBiomeDistributionOverrides =
+            new Dictionary<string, Dictionary<string, float>>(StringComparer.OrdinalIgnoreCase)
+            {
+                {
+                    "Sulphur",
+                    new Dictionary<string, float>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        { "ActiveLavaZone_Chamber_Floor", 999f },
+                        { "ActiveLavaZone_Chamber_Wall", 999f },
+                        { "ActiveLavaZone_Chamber_Floor_Far", 999f },
+                        { "ActiveLavaZone_Falls_Floor", 999f },
+                        { "ActiveLavaZone_Falls_Wall", 999f }
+                    }
+                }
+            };
+
         public static readonly Dictionary<string, ModBetterRngEntityOverrideDefinition> EntityDistributionOverrides =
             new Dictionary<string, ModBetterRngEntityOverrideDefinition>(StringComparer.OrdinalIgnoreCase)
             {
@@ -61,6 +77,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
             "Kelp_Sand",
             "PrisonAquarium_Open_CreatureOnly"
         };
+
     }
 
     internal sealed class ModBetterRngEntityOverrideDefinition

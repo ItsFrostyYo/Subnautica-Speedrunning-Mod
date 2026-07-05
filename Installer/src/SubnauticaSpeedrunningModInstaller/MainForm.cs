@@ -205,7 +205,7 @@ internal sealed class MainForm : Form
             MessageBox.Show(
                 this,
                 "Installed " + package.Version + " successfully." + Environment.NewLine + Environment.NewLine +
-                "You can now launch the game normally with Subnautica.exe.",
+                "You can now launch the game with Subnautica.exe or Launch Mod.cmd.",
                 "Install Complete",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Information);

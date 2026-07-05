@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Diagnostics;
 using System.Reflection;
 using System.Windows.Forms;
 using SubnauticaSpeedrunningMod.Shared;
@@ -47,6 +48,10 @@ namespace SubnauticaSpeedrunningMod.Bootstrap
                 string logPath = Path.Combine(logsDirectory, "bootstrap.log");
                 Write(logPath, "Bootstrap starting.");
                 Write(logPath, "Game root: " + gameRoot);
+                if (TryHandoffDirectLaunchToLauncher(modRoot, logPath))
+                {
+                    return;
+                }
 
                 GameInstallValidationReport validationReport = GameInstallValidator.Validate(gameRoot);
                 if (!validationReport.IsValid)
@@ -111,6 +116,66 @@ namespace SubnauticaSpeedrunningMod.Bootstrap
             File.AppendAllText(
                 logPath,
                 "[" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff") + "] " + message + Environment.NewLine);
+        }
+
+        private static bool TryHandoffDirectLaunchToLauncher(string modRoot, string logPath)
+        {
+            try
+            {
+                string launcherVersion = Environment.GetEnvironmentVariable("MOD_LAUNCHER_VERSION") ?? string.Empty;
+                if (!string.IsNullOrEmpty(launcherVersion) && launcherVersion.Trim().Length > 0)
+                {
+                    return false;
+                }
+
+                string launcherPath = Path.Combine(modRoot, "Launch Mod.exe");
+                if (!File.Exists(launcherPath))
+                {
+                    Write(logPath, "Direct launch handoff skipped because launcher was not found at " + launcherPath);
+                    return false;
+                }
+
+                Process currentProcess = Process.GetCurrentProcess();
+                var startInfo = new ProcessStartInfo
+                {
+                    FileName = launcherPath,
+                    WorkingDirectory = Path.GetDirectoryName(launcherPath) ?? modRoot,
+                    UseShellExecute = true
+                };
+
+                string arguments = "--handoff-pid " + currentProcess.Id;
+                string[] currentArgs = Environment.GetCommandLineArgs();
+                for (int i = 1; i < currentArgs.Length; i++)
+                {
+                    arguments += " " + QuoteArgument(currentArgs[i]);
+                }
+
+                startInfo.Arguments = arguments;
+                Write(logPath, "Direct Subnautica.exe launch detected. Handing off to launcher.");
+                Process.Start(startInfo);
+                Environment.Exit(0);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Write(logPath, "Direct launch handoff failed, continuing bootstrap normally: " + ex);
+                return false;
+            }
+        }
+
+        private static string QuoteArgument(string value)
+        {
+            if (string.IsNullOrEmpty(value))
+            {
+                return "\"\"";
+            }
+
+            if (value.IndexOfAny(new[] { ' ', '\t', '"' }) < 0)
+            {
+                return value;
+            }
+
+            return "\"" + value.Replace("\"", "\\\"") + "\"";
         }
 
         private static void ShowValidationFailure(GameInstallValidationReport validationReport, string validationPath)
