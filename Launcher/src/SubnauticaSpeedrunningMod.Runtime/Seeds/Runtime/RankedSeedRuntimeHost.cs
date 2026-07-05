@@ -5,6 +5,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
 {
     internal static class ModSeedRuntimeHost
     {
+        private static readonly ModSeedRuntimeProfile BetterRngFixedProfile = ModSeedRuntimeProfile.CreateBetterRngFixedProfile();
         private static bool _installed;
         private static bool _startupHooksInstallAttempted;
         private static bool _hooksInstallAttempted;
@@ -26,6 +27,11 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
 
         public static ModSeedRuntimeProfile GetProfile()
         {
+            if (ShouldApplyBetterRngRules())
+            {
+                return BetterRngFixedProfile;
+            }
+
             return ModSeedStore.GetActiveProfile();
         }
 
@@ -36,7 +42,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
 
         public static bool IsBetterRngSeedActive()
         {
-            return ModSeedStore.IsBetterRngSeedActive();
+            return ShouldApplyBetterRngRules();
         }
 
         public static bool IsRankedSingleplayerSeedActive()
@@ -245,18 +251,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
                 return false;
             }
 
-            if (HasActiveSeedAssignment())
-            {
-                return IsBetterRngSeedActive();
-            }
-
-            if (ModClientSessionMode.IsBetterRngSingleplayerSelected && !Utils.GetContinueMode())
-            {
-                return true;
-            }
-
-            string saveSlot = Utils.GetSavegameDir() ?? string.Empty;
-            if (string.IsNullOrEmpty(saveSlot))
+            if (!ModClientSessionMode.IsBetterRngSingleplayerSelected)
             {
                 return false;
             }
@@ -267,11 +262,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
                 return false;
             }
 
-            GameMode mode = Utils.GetLegacyGameMode();
-            string seedId;
-            return IsSupportedSeedMode(mode) &&
-                ModSeedStore.TryPeekAssignedSeedId(saveSlot, mode, out seedId) &&
-                ModSeedStore.IsBetterRngSeedId(seedId);
+            return true;
         }
 
         private static bool IsSupportedSeedMode(GameMode mode)

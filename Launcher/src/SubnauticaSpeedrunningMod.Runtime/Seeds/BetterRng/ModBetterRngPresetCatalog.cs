@@ -5,9 +5,9 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
 {
     internal static class ModBetterRngPresetCatalog
     {
-        public const float SpawnMinX = -99f;
-        public const float SpawnMaxX = -103f;
-        public const float SpawnMinZ = 92f;
+        public const float SpawnMinX = -98f;
+        public const float SpawnMaxX = -100f;
+        public const float SpawnMinZ = 93f;
         public const float SpawnMaxZ = 95f;
         public static readonly Dictionary<string, float> BiomeDistributionOverrides =
             new Dictionary<string, float>(StringComparer.OrdinalIgnoreCase)

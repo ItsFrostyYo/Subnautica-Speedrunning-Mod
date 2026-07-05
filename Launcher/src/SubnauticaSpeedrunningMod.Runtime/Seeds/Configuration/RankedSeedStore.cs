@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Text;
@@ -12,18 +13,13 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
         private const string AssignedSlotsDirectoryName = "AssignedSlots";
         private const string ActiveSeedFileName = "active-seed.xml";
         private const string SurvivalTemplateFileName = "survival-seed-template.xml";
-        private const string PendingSharedSeedFileName = "pending-shared-seed.xml";
-        private const string LastConsumedSharedSeedFileName = "last-consumed-shared-seed.xml";
 
         private static readonly object Sync = new object();
         private static readonly XmlSerializer SeedSerializer = new XmlSerializer(typeof(ModSeedDefinition));
-        private static readonly XmlSerializer SharedSeedSerializer = new XmlSerializer(typeof(ModPendingSharedSeedDefinition));
         private static bool _initialized;
         private static string _seedsDirectoryPath = string.Empty;
         private static string _assignedSlotsDirectoryPath = string.Empty;
         private static string _activeSeedPath = string.Empty;
-        private static string _pendingSharedSeedPath = string.Empty;
-        private static string _lastConsumedSharedSeedPath = string.Empty;
         private static ModSeedDefinition _activeSeed;
         private static ModSeedRuntimeProfile _activeProfile;
         private static ModSeedRollContext _rollContext;
@@ -51,12 +47,11 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
                 Directory.CreateDirectory(_seedsDirectoryPath);
                 _assignedSlotsDirectoryPath = Path.Combine(_seedsDirectoryPath, AssignedSlotsDirectoryName);
                 Directory.CreateDirectory(_assignedSlotsDirectoryPath);
+                CleanupObsoleteSeedArtifacts();
 
                 string activeSeedPath = Path.Combine(_seedsDirectoryPath, ActiveSeedFileName);
                 _activeSeedPath = activeSeedPath;
                 string survivalTemplatePath = Path.Combine(_seedsDirectoryPath, SurvivalTemplateFileName);
-                _pendingSharedSeedPath = Path.Combine(_seedsDirectoryPath, PendingSharedSeedFileName);
-                _lastConsumedSharedSeedPath = Path.Combine(_seedsDirectoryPath, LastConsumedSharedSeedFileName);
 
                 EnsureDefaultSeedFile(activeSeedPath, ModSeedDefinition.CreateDefaultActiveSeed());
                 EnsureDefaultSeedFile(survivalTemplatePath, CreateSurvivalTemplateSeed());
@@ -129,22 +124,11 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
                 bool forceFreshSlotSeed = !continueMode && createIfMissing;
 
                 ModSeedDefinition slotSeed;
-                bool consumedSharedSeed = false;
                 if (forceFreshSlotSeed)
                 {
                     DeleteExistingSlotSeedFiles(saveSlot);
-                }
-
-                if (forceFreshSlotSeed && TryConsumePendingSharedSeed(mode, saveSlot, out slotSeed))
-                {
-                    slotSeedPath = GetSlotSeedFilePath(saveSlot, slotSeed.SeedId);
-                    SaveSeedFile(slotSeedPath, slotSeed);
-                    createdSlotSeed = true;
-                    consumedSharedSeed = true;
-                }
-                else if (forceFreshSlotSeed)
-                {
                     slotSeed = CreateSeedForSlot(saveSlot, mode, continueMode: false);
+                    MaterializeSeedDefinition(slotSeed);
                     slotSeedPath = GetSlotSeedFilePath(saveSlot, slotSeed.SeedId);
                     SaveSeedFile(slotSeedPath, slotSeed);
                     createdSlotSeed = true;
@@ -159,6 +143,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
                 else
                 {
                     slotSeed = CreateSeedForSlot(saveSlot, mode, continueMode);
+                    MaterializeSeedDefinition(slotSeed);
                     slotSeedPath = GetSlotSeedFilePath(saveSlot, slotSeed.SeedId);
                     SaveSeedFile(slotSeedPath, slotSeed);
                     createdSlotSeed = true;
@@ -166,7 +151,8 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
 
                 bool upgraded = UpgradeSeedDefinitionIfNeeded(slotSeed, enforceCurrentDefaultAlwaysValues: false);
                 bool migratedLegacy = MigrateLegacyCreativeSeedIfNeeded(slotSeed);
-                if (upgraded || migratedLegacy)
+                bool materialized = MaterializeSeedDefinition(slotSeed);
+                if (upgraded || migratedLegacy || materialized)
                 {
                     SaveSeedFile(slotSeedPath, slotSeed);
                 }
@@ -179,7 +165,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
                 if (createdSlotSeed)
                 {
                     ModLog.Info(
-                        (consumedSharedSeed ? "Assigned shared " : "Assigned new ") +
+                        "Assigned new " +
                         mode +
                         " slot seed '" +
                         _activeSeed.SeedId +
@@ -227,66 +213,6 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
                 return _initialized &&
                     !string.IsNullOrEmpty(_activeAssignedSlot) &&
                     _activeAssignedMode != GameMode.None;
-            }
-        }
-
-        public static bool IsBetterRngSeedActive()
-        {
-            lock (Sync)
-            {
-                return _initialized &&
-                    !string.IsNullOrEmpty(_activeAssignedSlot) &&
-                    _activeAssignedMode != GameMode.None &&
-                    IsBetterRngSeedId(_activeSeed == null ? string.Empty : _activeSeed.SeedId);
-            }
-        }
-
-        public static bool TryPeekAssignedSeedId(string saveSlot, GameMode mode, out string seedId)
-        {
-            lock (Sync)
-            {
-                seedId = string.Empty;
-
-                if (!_initialized || string.IsNullOrEmpty(saveSlot) || !IsRealSaveSlot(saveSlot) || !IsSupportedSeedMode(mode))
-                {
-                    return false;
-                }
-
-                ModSeedDefinition seedDefinition;
-                string seedPath;
-                if (!TryLoadExistingSlotSeed(saveSlot, mode, continueMode: true, out seedDefinition, out seedPath))
-                {
-                    return false;
-                }
-
-                seedId = seedDefinition == null || string.IsNullOrEmpty(seedDefinition.SeedId)
-                    ? string.Empty
-                    : seedDefinition.SeedId;
-                return !string.IsNullOrEmpty(seedId);
-            }
-        }
-
-        public static bool QueueSharedSeed(GameMode mode, string seedId, string seedValue, string description)
-        {
-            lock (Sync)
-            {
-                if (!_initialized || !IsSupportedSeedMode(mode) || string.IsNullOrEmpty(seedValue))
-                {
-                    return false;
-                }
-
-                ModPendingSharedSeedDefinition assignment = new ModPendingSharedSeedDefinition
-                {
-                    SeedId = string.IsNullOrEmpty(seedId) ? GetSeedIdForMode(mode, ModSeedVariantKind.RankedSingleplayer) : seedId,
-                    SeedValue = seedValue,
-                    GameMode = mode.ToString(),
-                    Description = string.IsNullOrEmpty(description) ? "Queued shared seed." : description
-                };
-
-                assignment.Normalize();
-                SaveSharedSeedFile(_pendingSharedSeedPath, assignment);
-                ModLog.Info("Queued pending shared seed '" + assignment.SeedId + "' / '" + assignment.SeedValue + "' for mode '" + assignment.GameMode + "'.");
-                return true;
             }
         }
 
@@ -396,43 +322,17 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
                 : _activeSeed.SeedValue;
         }
 
-        public static bool IsBetterRngSeedId(string seedId)
-        {
-            return !string.IsNullOrEmpty(seedId) &&
-                seedId.StartsWith("BetterRNG-", StringComparison.OrdinalIgnoreCase);
-        }
-
         private static ModSeedDefinition CreateSeedForSlot(string saveSlot, GameMode mode, bool continueMode)
         {
-            ModSeedVariantKind variant = ResolveCreationVariant();
             ModSeedDefinition seedDefinition = ModSeedDefinition.CreateDefaultActiveSeed();
-            seedDefinition.SeedId = GetSeedIdForMode(mode, variant);
+            seedDefinition.SeedId = GetSeedIdForMode(mode);
             seedDefinition.SeedValue = BuildSeedValue(saveSlot, mode, continueMode);
             seedDefinition.Description =
                 (continueMode ? "Migrated" : "Generated") + " " +
-                (variant == ModSeedVariantKind.BetterRng ? "BetterRNG " : string.Empty) +
                 mode +
-                " seed for save slot '" +
+                " ranked singleplayer seed for save slot '" +
                 saveSlot +
                 "'.";
-            seedDefinition.Creative = ModCreativeSeedDefinition.CreateDefault();
-            seedDefinition.Survival = ModSurvivalSeedDefinition.CreateTemplate();
-            if (IsBetterRngSeedId(seedDefinition.SeedId) && seedDefinition.Survival.Defaults != null)
-            {
-                seedDefinition.Survival.Defaults.StalkerBitesDropTeeth = true;
-            }
-            seedDefinition.Normalize();
-            return seedDefinition;
-        }
-
-        private static ModSeedDefinition CreateSharedSeedForSlot(string saveSlot, GameMode mode, ModPendingSharedSeedDefinition assignment)
-        {
-            ModSeedDefinition seedDefinition = ModSeedDefinition.CreateDefaultActiveSeed();
-            seedDefinition.SeedId = string.IsNullOrEmpty(assignment.SeedId) ? GetSeedIdForMode(mode, ModSeedVariantKind.RankedSingleplayer) : assignment.SeedId;
-            seedDefinition.SeedValue = assignment.SeedValue;
-            seedDefinition.Description = string.IsNullOrEmpty(assignment.Description)
-                ? "Shared " + mode + " seed for save slot '" + saveSlot + "'."
-                : assignment.Description + " [slot '" + saveSlot + "']";
             seedDefinition.Creative = ModCreativeSeedDefinition.CreateDefault();
             seedDefinition.Survival = ModSurvivalSeedDefinition.CreateTemplate();
             seedDefinition.Normalize();
@@ -449,18 +349,17 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
             return modeToken + "-" + stateToken + "-" + slotToken + "-" + timestampToken + "-" + uniqueToken;
         }
 
-        private static string GetSeedIdForMode(GameMode mode, ModSeedVariantKind variant)
+        private static string GetSeedIdForMode(GameMode mode)
         {
-            string prefix = variant == ModSeedVariantKind.BetterRng ? "BetterRNG-" : string.Empty;
             switch (mode)
             {
                 case GameMode.Creative:
-                    return prefix + "Creative-Singleplayer";
+                    return "Creative-Singleplayer";
                 case GameMode.Hardcore:
-                    return prefix + "Hardcore-Singleplayer";
+                    return "Hardcore-Singleplayer";
                 case GameMode.Survival:
                 default:
-                    return prefix + "Survival-Singleplayer";
+                    return "Survival-Singleplayer";
             }
         }
 
@@ -530,20 +429,11 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
             seedPath = string.Empty;
 
             string slotToken = SanitizeToken(saveSlot);
-            string[] exactSeedIds =
+            string exactPath = GetSlotSeedFilePath(saveSlot, GetSeedIdForMode(mode));
+            if (File.Exists(exactPath))
             {
-                GetSeedIdForMode(mode, ModSeedVariantKind.RankedSingleplayer),
-                GetSeedIdForMode(mode, ModSeedVariantKind.BetterRng)
-            };
-
-            for (int i = 0; i < exactSeedIds.Length; i++)
-            {
-                string exactPath = GetSlotSeedFilePath(saveSlot, exactSeedIds[i]);
-                if (File.Exists(exactPath))
-                {
-                    seedPath = exactPath;
-                    return true;
-                }
+                seedPath = exactPath;
+                return true;
             }
 
             string[] matchingFiles = Directory.GetFiles(_assignedSlotsDirectoryPath, slotToken + "__*.xml");
@@ -569,18 +459,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
 
         private static bool DoesSeedIdMatchMode(string seedId, GameMode mode)
         {
-            string expectedSuffix = GetSeedIdForMode(mode, ModSeedVariantKind.RankedSingleplayer);
-            string betterRngExpectedSuffix = GetSeedIdForMode(mode, ModSeedVariantKind.BetterRng);
-
-            return string.Equals(seedId, expectedSuffix, StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(seedId, betterRngExpectedSuffix, StringComparison.OrdinalIgnoreCase);
-        }
-
-        private static ModSeedVariantKind ResolveCreationVariant()
-        {
-            return ModClientSessionMode.IsBetterRngSingleplayerSelected
-                ? ModSeedVariantKind.BetterRng
-                : ModSeedVariantKind.RankedSingleplayer;
+            return string.Equals(seedId, GetSeedIdForMode(mode), StringComparison.OrdinalIgnoreCase);
         }
 
         private static void DeleteExistingSlotSeedFiles(string saveSlot)
@@ -702,92 +581,260 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
             }
         }
 
-        private static ModPendingSharedSeedDefinition LoadSharedSeedFile(string path)
+        private static void CleanupObsoleteSeedArtifacts()
         {
-            try
-            {
-                using (FileStream stream = File.OpenRead(path))
-                {
-                    ModPendingSharedSeedDefinition value = SharedSeedSerializer.Deserialize(stream) as ModPendingSharedSeedDefinition;
-                    if (value != null)
-                    {
-                        value.Normalize();
-                    }
+            TryDeleteObsoletePath(Path.Combine(_seedsDirectoryPath, "pending-shared-seed.xml"), recursive: false);
+            TryDeleteObsoletePath(Path.Combine(_seedsDirectoryPath, "last-consumed-shared-seed.xml"), recursive: false);
+            TryDeleteObsoletePath(Path.Combine(_seedsDirectoryPath, "Surveys"), recursive: true);
 
-                    return value;
-                }
-            }
-            catch (Exception ex)
+            if (!Directory.Exists(_assignedSlotsDirectoryPath))
             {
-                ModLog.Error("Failed to load pending shared seed file at '" + path + "'.", ex);
-                return null;
+                return;
+            }
+
+            string[] obsoleteBetterRngFiles = Directory.GetFiles(_assignedSlotsDirectoryPath, "*__betterrng-*.xml");
+            for (int i = 0; i < obsoleteBetterRngFiles.Length; i++)
+            {
+                TryDeleteObsoletePath(obsoleteBetterRngFiles[i], recursive: false);
             }
         }
 
-        private static void SaveSharedSeedFile(string path, ModPendingSharedSeedDefinition definition)
+        private static void TryDeleteObsoletePath(string path, bool recursive)
         {
+            if (string.IsNullOrEmpty(path) || !File.Exists(path) && !Directory.Exists(path))
+            {
+                return;
+            }
+
             try
             {
-                if (definition != null)
+                if (Directory.Exists(path))
                 {
-                    definition.Normalize();
+                    Directory.Delete(path, recursive);
                 }
-
-                using (FileStream stream = File.Create(path))
+                else
                 {
-                    SharedSeedSerializer.Serialize(stream, definition);
+                    File.Delete(path);
                 }
             }
             catch (Exception ex)
             {
-                ModLog.Error("Failed to write shared seed file at '" + path + "'.", ex);
+                ModLog.Warn("Unable to delete obsolete seed artifact '" + path + "': " + ex.Message);
             }
         }
 
-        private static bool TryConsumePendingSharedSeed(GameMode mode, string saveSlot, out ModSeedDefinition slotSeed)
+        private static bool MaterializeSeedDefinition(ModSeedDefinition seedDefinition)
         {
-            slotSeed = null;
-            if (string.IsNullOrEmpty(_pendingSharedSeedPath) || !File.Exists(_pendingSharedSeedPath))
+            if (seedDefinition == null)
             {
                 return false;
             }
 
-            ModPendingSharedSeedDefinition assignment = LoadSharedSeedFile(_pendingSharedSeedPath);
-            if (assignment == null)
+            seedDefinition.Normalize();
+            bool changed = false;
+            ModSeedRollContext rollContext = new ModSeedRollContext(seedDefinition);
+
+            changed |= NormalizeSingleplayerSurvivalSpawn(seedDefinition.Survival == null ? null : seedDefinition.Survival.Spawn);
+            changed |= MaterializeSpawnEntries(seedDefinition.Survival == null ? null : seedDefinition.Survival.Fragments, "Fragments", rollContext);
+            changed |= MaterializeSpawnEntries(seedDefinition.Survival == null ? null : seedDefinition.Survival.Resources, "Resources", rollContext);
+            changed |= MaterializeSpawnEntries(seedDefinition.Survival == null ? null : seedDefinition.Survival.Creatures, "Creatures", rollContext);
+            changed |= MaterializeSpawnEntries(seedDefinition.Survival == null ? null : seedDefinition.Survival.Always, "Always", rollContext);
+            changed |= MaterializeBiomeEntries(seedDefinition.Survival == null ? null : seedDefinition.Survival.Biomes, "Biomes", rollContext);
+            changed |= MaterializeBiomeEntries(seedDefinition.Survival == null ? null : seedDefinition.Survival.AlwaysBiomeMultipliers, "AlwaysBiomes", rollContext);
+            changed |= MaterializeManualCreatureSpawnEntries(seedDefinition.Survival == null ? null : seedDefinition.Survival.ManualCreatureSpawns, rollContext);
+
+            return changed;
+        }
+
+        private static bool NormalizeSingleplayerSurvivalSpawn(ModSurvivalSpawnDefinition survivalSpawn)
+        {
+            if (survivalSpawn == null)
             {
                 return false;
             }
 
-            GameMode assignmentMode;
-            try
+            bool changed = false;
+            survivalSpawn.Normalize();
+
+            List<ModCreativeSpawnRangeDefinition> clipCRanges = new List<ModCreativeSpawnRangeDefinition>();
+            for (int i = 0; i < survivalSpawn.Ranges.Count; i++)
             {
-                assignmentMode = (GameMode)Enum.Parse(typeof(GameMode), assignment.GameMode, true);
-            }
-            catch
-            {
-                assignmentMode = GameMode.None;
+                ModCreativeSpawnRangeDefinition range = survivalSpawn.Ranges[i];
+                if (range != null && string.Equals(range.Name, "Clip C", StringComparison.OrdinalIgnoreCase))
+                {
+                    clipCRanges.Add(range);
+                }
             }
 
-            if (assignmentMode != mode)
+            if (clipCRanges.Count > 0 && clipCRanges.Count != survivalSpawn.Ranges.Count)
             {
-                ModLog.Warn("Pending shared seed mode '" + assignment.GameMode + "' did not match requested mode '" + mode + "'.");
+                survivalSpawn.Ranges = clipCRanges;
+                changed = true;
+            }
+
+            if (survivalSpawn.Ranges.Count == 1 && survivalSpawn.Ranges[0] != null && !ApproximatelyEquals(survivalSpawn.Ranges[0].Weight, 1f))
+            {
+                survivalSpawn.Ranges[0].Weight = 1f;
+                changed = true;
+            }
+
+            if (survivalSpawn.SpawnMode != ModCreativeSpawnMode.WeightedRanges)
+            {
+                survivalSpawn.SpawnMode = ModCreativeSpawnMode.WeightedRanges;
+                changed = true;
+            }
+
+            return changed;
+        }
+
+        private static bool MaterializeSpawnEntries(List<ModSpawnMultiplierEntry> entries, string groupName, ModSeedRollContext rollContext)
+        {
+            if (entries == null)
+            {
                 return false;
             }
 
-            slotSeed = CreateSharedSeedForSlot(saveSlot, mode, assignment);
-            SaveSharedSeedFile(_lastConsumedSharedSeedPath, assignment);
-
-            try
+            bool changed = false;
+            for (int i = 0; i < entries.Count; i++)
             {
-                File.Delete(_pendingSharedSeedPath);
-            }
-            catch (Exception ex)
-            {
-                ModLog.Warn("Unable to clear pending shared seed file after consuming it: " + ex.Message);
+                ModSpawnMultiplierEntry entry = entries[i];
+                if (entry == null || string.IsNullOrEmpty(entry.Name))
+                {
+                    continue;
+                }
+
+                float resolvedValue = entry.UseSeedRange
+                    ? Math.Max(0f, rollContext.NextSteppedFloat("survival|" + groupName + "|" + entry.Name, entry.MinChanceMultiplier, entry.MaxChanceMultiplier, entry.ResolutionStep))
+                    : Math.Max(0f, entry.ChanceMultiplier);
+
+                if (!ApproximatelyEquals(entry.ChanceMultiplier, resolvedValue))
+                {
+                    entry.ChanceMultiplier = resolvedValue;
+                    changed = true;
+                }
+
+                if (entry.UseSeedRange)
+                {
+                    entry.UseSeedRange = false;
+                    changed = true;
+                }
+
+                if (!ApproximatelyEquals(entry.MinChanceMultiplier, resolvedValue))
+                {
+                    entry.MinChanceMultiplier = resolvedValue;
+                    changed = true;
+                }
+
+                if (!ApproximatelyEquals(entry.MaxChanceMultiplier, resolvedValue))
+                {
+                    entry.MaxChanceMultiplier = resolvedValue;
+                    changed = true;
+                }
+
+                entry.Normalize();
             }
 
-            ModLog.Info("Consumed pending shared seed '" + assignment.SeedId + "' / '" + assignment.SeedValue + "' for save slot '" + saveSlot + "'.");
-            return true;
+            return changed;
+        }
+
+        private static bool MaterializeBiomeEntries(List<ModBiomeMultiplierEntry> entries, string groupName, ModSeedRollContext rollContext)
+        {
+            if (entries == null)
+            {
+                return false;
+            }
+
+            bool changed = false;
+            for (int i = 0; i < entries.Count; i++)
+            {
+                ModBiomeMultiplierEntry entry = entries[i];
+                if (entry == null || string.IsNullOrEmpty(entry.Name))
+                {
+                    continue;
+                }
+
+                float resolvedValue = entry.UseSeedRange
+                    ? Math.Max(0f, rollContext.NextSteppedFloat("survival|" + groupName + "|" + entry.Name, entry.MinChanceMultiplier, entry.MaxChanceMultiplier, entry.ResolutionStep))
+                    : Math.Max(0f, entry.ChanceMultiplier);
+
+                if (!ApproximatelyEquals(entry.ChanceMultiplier, resolvedValue))
+                {
+                    entry.ChanceMultiplier = resolvedValue;
+                    changed = true;
+                }
+
+                if (entry.UseSeedRange)
+                {
+                    entry.UseSeedRange = false;
+                    changed = true;
+                }
+
+                if (!ApproximatelyEquals(entry.MinChanceMultiplier, resolvedValue))
+                {
+                    entry.MinChanceMultiplier = resolvedValue;
+                    changed = true;
+                }
+
+                if (!ApproximatelyEquals(entry.MaxChanceMultiplier, resolvedValue))
+                {
+                    entry.MaxChanceMultiplier = resolvedValue;
+                    changed = true;
+                }
+
+                entry.Normalize();
+            }
+
+            return changed;
+        }
+
+        private static bool MaterializeManualCreatureSpawnEntries(List<ModManualCreatureSpawnEntry> entries, ModSeedRollContext rollContext)
+        {
+            if (entries == null)
+            {
+                return false;
+            }
+
+            bool changed = false;
+            for (int i = 0; i < entries.Count; i++)
+            {
+                ModManualCreatureSpawnEntry entry = entries[i];
+                if (entry == null || string.IsNullOrEmpty(entry.TechTypeName))
+                {
+                    continue;
+                }
+
+                int resolvedAmount = entry.UseSeedRange
+                    ? Math.Max(0, rollContext.NextSteppedInt("survival|ManualCreatureSpawns|" + entry.TechTypeName + "|Amount", entry.MinAmount, entry.MaxAmount, entry.AmountStep))
+                    : Math.Max(0, entry.Amount);
+
+                if (entry.Amount != resolvedAmount)
+                {
+                    entry.Amount = resolvedAmount;
+                    changed = true;
+                }
+
+                if (entry.UseSeedRange)
+                {
+                    entry.UseSeedRange = false;
+                    changed = true;
+                }
+
+                if (entry.MinAmount != resolvedAmount)
+                {
+                    entry.MinAmount = resolvedAmount;
+                    changed = true;
+                }
+
+                if (entry.MaxAmount != resolvedAmount)
+                {
+                    entry.MaxAmount = resolvedAmount;
+                    changed = true;
+                }
+
+                entry.Normalize();
+            }
+
+            return changed;
         }
 
         private static void ResolveCreativeSpawn(ModCreativeSeedDefinition creative)
@@ -1317,10 +1364,5 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
                    string.Equals(seedId, ModSeedDefinition.LegacyDefaultActiveSeedId, StringComparison.OrdinalIgnoreCase);
         }
 
-        private enum ModSeedVariantKind
-        {
-            RankedSingleplayer,
-            BetterRng
-        }
     }
 }
