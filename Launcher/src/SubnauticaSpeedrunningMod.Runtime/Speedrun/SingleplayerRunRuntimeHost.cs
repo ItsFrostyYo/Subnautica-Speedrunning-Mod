@@ -195,6 +195,21 @@ namespace SubnauticaSpeedrunningMod.Runtime.RunTracking
 
         private static void RefreshActiveSeedForSaveContext()
         {
+            if (!ModClientSessionMode.IsRankedSingleplayerPracticeSelected)
+            {
+                if (!string.IsNullOrEmpty(_lastActivatedSeedSaveSlot) || _lastActivatedSeedMode != GameMode.None)
+                {
+                    _lastActivatedSeedSaveSlot = string.Empty;
+                    _lastActivatedSeedMode = GameMode.None;
+                    ModSeedStore.ResetSessionSelections();
+                    ModSeedWorldRuntime.Reset();
+                    SeededLifepodPlacement.Reset();
+                    ModLog.Info("Cleared ranked singleplayer seed context because the current session is vanilla or non-ranked.");
+                }
+
+                return;
+            }
+
             string saveSlot = Utils.GetSavegameDir() ?? string.Empty;
             if (string.IsNullOrEmpty(saveSlot))
             {
@@ -224,9 +239,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.RunTracking
                 return;
             }
 
-            bool createIfMissing =
-                !Utils.GetContinueMode() &&
-                ModClientSessionMode.IsRankedSingleplayerPracticeSelected;
+            bool createIfMissing = !Utils.GetContinueMode();
 
             bool seedEnsured = ModSeedStore.EnsureSeedForSaveContext(saveSlot, mode, Utils.GetContinueMode(), createIfMissing);
             if (!seedEnsured && !ModSeedStore.IsSeedContextActive(saveSlot, mode))

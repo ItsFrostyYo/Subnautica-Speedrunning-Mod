@@ -27,6 +27,11 @@ namespace SubnauticaSpeedrunningMod.Runtime
             get { return _launchMode == ModClientLaunchMode.ModSingleplayerPractice; }
         }
 
+        public static bool IsRankedMultiplayerSelected
+        {
+            get { return _launchMode == ModClientLaunchMode.ModMultiplayer; }
+        }
+
         public static bool IsBetterRngSingleplayerSelected
         {
             get { return _launchMode == ModClientLaunchMode.ModBetterRngSingleplayer; }

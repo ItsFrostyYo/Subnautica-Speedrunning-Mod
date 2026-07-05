@@ -47,7 +47,9 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
 
         public static bool IsRankedSingleplayerSeedActive()
         {
-            return HasActiveSeedAssignment() && !IsBetterRngSeedActive();
+            return ModClientSessionMode.IsRankedSingleplayerPracticeSelected &&
+                   HasActiveSeedAssignment() &&
+                   !IsBetterRngSeedActive();
         }
 
         public static bool IsSupportedGameplayMode()
@@ -236,12 +238,17 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
                 return false;
             }
 
+            if (!ModClientSessionMode.IsRankedSingleplayerPracticeSelected)
+            {
+                return false;
+            }
+
             if (HasActiveSeedAssignment())
             {
                 return IsRankedSingleplayerSeedActive();
             }
 
-            return ModClientSessionMode.IsRankedSingleplayerPracticeSelected && !Utils.GetContinueMode();
+            return !Utils.GetContinueMode();
         }
 
         public static bool ShouldApplyBetterRngRules()

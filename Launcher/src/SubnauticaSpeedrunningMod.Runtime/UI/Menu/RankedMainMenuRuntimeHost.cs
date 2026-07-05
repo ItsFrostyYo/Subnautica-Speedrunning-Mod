@@ -22,9 +22,9 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
         private const string BetterRngSavedGamesButtonLabel = "Start a New BetterRNG Save";
         private const string FutureUpdatePlaceholderText = "Coming in a Future Update";
         private const string LeaderboardPlaceholderObjectName = "ModLeaderboardPlaceholder";
-        private const string UpdatePanelTitleText = "Update Beta-0.7.3";
+        private const string UpdatePanelTitleText = "Update Beta-0.7.4";
         // Edit this message each release to show the newest client changes on the main menu.
-        private const string UpdatePanelBodyText = "This Update Modifies Ranked Seeds Slightly to Regulate it for more Balancing, and some other small fixes like removing BetterRNG From applying in Vanilla Saves.";
+        private const string UpdatePanelBodyText = "This Update Fixes Ranked Singleplayer From Applying To Normal Vanilla Play Loads, so Vanilla Play Stays Vanilla Again.";
         private const string UpdatePanelBodyObjectName = "ModUpdatePanelBody";
         private const int WatermarkFontSize = 18;
         private const int QueueButtonFontSize = 34;
