@@ -24,6 +24,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
         private static FieldInfo _csvSpawnerLootDistributionField;
         private static Dictionary<BiomeType, float> _biomeOverrides;
         private static Dictionary<TechType, ModBetterRngResolvedEntityOverride> _entityOverrides;
+        private static Dictionary<TechType, Dictionary<BiomeType, float>> _entityBiomeOverrides;
         private static HashSet<BiomeType> _blockedCreatureBiomes;
         private static HashSet<BiomeType> _kelpForestBiomes;
 
@@ -57,6 +58,9 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
                 _harmony.Patch(
                     typeof(CSVEntitySpawner).GetMethod("GetPrefabForSlot", InstanceFlags, null, new[] { typeof(IEntitySlot), typeof(bool) }, null),
                     prefix: new HarmonyMethod(typeof(ModBetterRngRuntimeHost).GetMethod(nameof(CsvEntitySpawnerGetPrefabForSlotPrefix), BindingFlags.Static | BindingFlags.NonPublic)));
+                _harmony.Patch(
+                    typeof(EntitySlotsPlaceholder).GetMethod("Spawn", InstanceFlags, null, Type.EmptyTypes, null),
+                    prefix: new HarmonyMethod(typeof(ModBetterRngRuntimeHost).GetMethod(nameof(EntitySlotsPlaceholderSpawnPrefix), BindingFlags.Static | BindingFlags.NonPublic)));
 
                 _installed = true;
                 ModLog.Info("Installed BetterRNG runtime hooks.");
@@ -78,6 +82,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
             _csvSpawnerLootDistributionField = typeof(CSVEntitySpawner).GetField("lootDistribution", InstanceFlags);
             _biomeOverrides = ResolveBiomeOverrideMap(ModBetterRngPresetCatalog.BiomeDistributionOverrides);
             _entityOverrides = ResolveEntityOverrideMap(ModBetterRngPresetCatalog.EntityDistributionOverrides);
+            _entityBiomeOverrides = ResolveEntityBiomeOverrideMap(ModBetterRngPresetCatalog.EntityBiomeDistributionOverrides);
             _blockedCreatureBiomes = ResolveBiomeSet(ModBetterRngPresetCatalog.BlockedCreatureBiomeNames);
             _kelpForestBiomes = ResolveBiomeSet(ModSeedReferenceCatalog.KelpForestBiomes);
 
@@ -88,6 +93,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
                 _csvSpawnerLootDistributionField != null &&
                 _biomeOverrides != null &&
                 _entityOverrides != null &&
+                _entityBiomeOverrides != null &&
                 _blockedCreatureBiomes != null &&
                 _kelpForestBiomes != null;
         }
@@ -153,6 +159,11 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
                     continue;
                 }
 
+                WorldEntityInfo info;
+                bool hasWorldEntityInfo = WorldEntityDatabase.TryGetInfo(classId, out info);
+                ModBetterRngResolvedEntityOverride entityOverride = default(ModBetterRngResolvedEntityOverride);
+                bool hasEntityOverride = hasWorldEntityInfo && _entityOverrides.TryGetValue(info.techType, out entityOverride);
+
                 for (int i = 0; i < distribution.Count; i++)
                 {
                     LootDistributionData.BiomeData biomeData = distribution[i];
@@ -162,10 +173,49 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
                     }
 
                     float probability = biomeData.probability;
+                    int count = biomeData.count;
                     float overrideProbability;
                     if (_biomeOverrides.TryGetValue(biomeData.biome, out overrideProbability))
                     {
                         probability = overrideProbability;
+                    }
+
+                    if (hasWorldEntityInfo)
+                    {
+                        float entityBiomeOverrideProbability;
+                        if (TryGetEntityBiomeOverride(info.techType, biomeData.biome, out entityBiomeOverrideProbability))
+                        {
+                            probability = entityBiomeOverrideProbability;
+                        }
+                    }
+
+                    if (hasWorldEntityInfo && info.techType == TechType.Stalker && !_kelpForestBiomes.Contains(biomeData.biome))
+                    {
+                        probability = 0f;
+                        count = 0;
+                    }
+
+                    if (hasEntityOverride)
+                    {
+                        if (entityOverride.HasAllowedBiomes &&
+                            (entityOverride.AllowedBiomes == null || !entityOverride.AllowedBiomes.Contains(biomeData.biome)))
+                        {
+                            probability = 0f;
+                            count = 0;
+                        }
+                        else
+                        {
+                            probability = entityOverride.Chance;
+                            if (entityOverride.HasCount)
+                            {
+                                count = entityOverride.Count;
+                            }
+                        }
+                    }
+
+                    if (probability <= 0f || count <= 0)
+                    {
+                        continue;
                     }
 
                     LootDistributionData.DstData dstData;
@@ -181,7 +231,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
                     dstData.prefabs.Add(new LootDistributionData.PrefabData
                     {
                         classId = classId,
-                        count = biomeData.count,
+                        count = count,
                         probability = probability
                     });
                 }
@@ -209,6 +259,88 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
             }
 
             return true;
+        }
+
+        private static bool EntitySlotsPlaceholderSpawnPrefix(EntitySlotsPlaceholder __instance)
+        {
+            if (!ModSeedRuntimeHost.ShouldApplyBetterRngRules())
+            {
+                return true;
+            }
+
+            if (__instance == null || __instance.slotsData == null)
+            {
+                return false;
+            }
+
+            GameObject virtualEntityPrefab = __instance.virtualEntityPrefab;
+            if (virtualEntityPrefab == null || LargeWorld.main == null || LargeWorld.main.streamer == null || LargeWorld.main.streamer.cellManager == null)
+            {
+                return false;
+            }
+
+            virtualEntityPrefab.SetActive(false);
+            for (int i = 0; i < __instance.slotsData.Length; i++)
+            {
+                EntitySlotData entitySlotData = __instance.slotsData[i];
+                bool spawnedAny = false;
+                EntitySlot.Filler prefabForSlot = LargeWorld.main.streamer.cellManager.GetPrefabForSlot(entitySlotData);
+                if (!string.IsNullOrEmpty(prefabForSlot.classId))
+                {
+                    WorldEntityInfo info;
+                    if (!WorldEntityDatabase.TryGetInfo(prefabForSlot.classId, out info))
+                    {
+                        UWE.Utils.LogReportFormat(__instance, "Missing world entity info for prefab '{0}'", prefabForSlot.classId);
+                        continue;
+                    }
+
+                    for (int j = 0; j < prefabForSlot.count; j++)
+                    {
+                        StopwatchProfiler.Instance.StartTimer(StopwatchProfiler.GetCachedProfilerTag("EntitySlotsPlaceholder-Spawn_", info.techType.AsString()));
+                        Vector3 localPosition = entitySlotData.localPosition;
+                        if (j > 0)
+                        {
+                            localPosition += UnityEngine.Random.insideUnitSphere * 4f;
+                        }
+
+                        Quaternion localRotation = entitySlotData.localRotation;
+                        if (info.prefabZUp)
+                        {
+                            localRotation *= Quaternion.Euler(new Vector3(-90f, 0f, 0f));
+                        }
+
+                        GameObject gameObject = UnityEngine.Object.Instantiate(virtualEntityPrefab, localPosition, localRotation);
+                        gameObject.transform.SetParent(__instance.transform, false);
+                        gameObject.transform.localScale = info.localScale;
+                        VirtualPrefabIdentifier identifier = gameObject.GetComponent<VirtualPrefabIdentifier>();
+                        identifier.ClassId = prefabForSlot.classId;
+                        LargeWorldEntity largeWorldEntity = gameObject.GetComponent<LargeWorldEntity>();
+                        largeWorldEntity.cellLevel = info.cellLevel;
+                        LargeWorld.main.streamer.cellManager.RegisterEntity(largeWorldEntity);
+                        gameObject.SetActive(true);
+                        spawnedAny = true;
+                        StopwatchProfiler.Instance.StopTimer();
+                    }
+                }
+
+                if (EntitySlot.debugSlots)
+                {
+                    bool creatureSlot = entitySlotData.IsCreatureSlot();
+                    GameObject debugGhost = GameObject.CreatePrimitive((!creatureSlot) ? PrimitiveType.Cube : PrimitiveType.Sphere);
+                    debugGhost.SetActive(false);
+                    debugGhost.name = entitySlotData.biomeType + " ghost (" + entitySlotData.density + ")";
+                    debugGhost.transform.parent = __instance.transform.parent;
+                    debugGhost.transform.localPosition = entitySlotData.localPosition;
+                    debugGhost.transform.localRotation = entitySlotData.localRotation;
+                    debugGhost.transform.localScale = (!creatureSlot) ? new Vector3(0.2f, 2f, 0.2f) : new Vector3(0.5f, 0.5f, 0.5f);
+                    debugGhost.transform.SetParent(null, true);
+                    UnityEngine.Object.Destroy(debugGhost.GetComponent<Collider>());
+                    debugGhost.GetComponent<Renderer>().sharedMaterial = EntitySlot.GetGhostMaterial(spawnedAny);
+                    debugGhost.SetActive(true);
+                }
+            }
+
+            return false;
         }
 
         private static bool CsvEntitySpawnerGetPrefabForSlotPrefix(CSVEntitySpawner __instance, IEntitySlot slot, bool filterKnown, ref EntitySlot.Filler __result)
@@ -431,6 +563,34 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
             return resolved;
         }
 
+        private static Dictionary<TechType, Dictionary<BiomeType, float>> ResolveEntityBiomeOverrideMap(Dictionary<string, Dictionary<string, float>> source)
+        {
+            Dictionary<TechType, Dictionary<BiomeType, float>> resolved = new Dictionary<TechType, Dictionary<BiomeType, float>>();
+            foreach (KeyValuePair<string, Dictionary<string, float>> entry in source)
+            {
+                if (string.IsNullOrEmpty(entry.Key) || entry.Value == null)
+                {
+                    continue;
+                }
+
+                try
+                {
+                    TechType techType = (TechType)Enum.Parse(typeof(TechType), entry.Key, true);
+                    Dictionary<BiomeType, float> biomeOverrides = ResolveBiomeOverrideMap(entry.Value);
+                    if (biomeOverrides.Count > 0)
+                    {
+                        resolved[techType] = biomeOverrides;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    ModLog.Warn("BetterRNG preset contains unknown TechType '" + entry.Key + "' for biome override: " + ex.Message);
+                }
+            }
+
+            return resolved;
+        }
+
         private static HashSet<BiomeType> ResolveBiomeSet(string[] names)
         {
             HashSet<BiomeType> resolved = new HashSet<BiomeType>();
@@ -453,6 +613,19 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
             }
 
             return resolved;
+        }
+
+        private static bool TryGetEntityBiomeOverride(TechType techType, BiomeType biome, out float probability)
+        {
+            probability = 0f;
+
+            Dictionary<BiomeType, float> biomeOverrides;
+            if (_entityBiomeOverrides == null || !_entityBiomeOverrides.TryGetValue(techType, out biomeOverrides) || biomeOverrides == null)
+            {
+                return false;
+            }
+
+            return biomeOverrides.TryGetValue(biome, out probability);
         }
 
         private struct ModBetterRngCandidate

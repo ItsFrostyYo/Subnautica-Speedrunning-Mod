@@ -12,9 +12,12 @@ internal sealed class FileLayout
     public string ModulesDirectory { get; private set; } = "";
     public string CacheDirectory { get; private set; } = "";
     public string DataDirectory { get; private set; } = "";
+    public string NativeTransportDirectory { get; private set; } = "";
     public string DoorstopConfigPath { get; private set; } = "";
     public string DoorstopLibraryPath { get; private set; } = "";
     public string DoorstopVersionPath { get; private set; } = "";
+    public string BundledDoorstopLibraryPath { get; private set; } = "";
+    public string BundledDoorstopVersionPath { get; private set; } = "";
     public string GameExecutablePath { get; private set; } = "";
     public string BootstrapAssemblyPath { get; private set; } = "";
     public string RuntimeAssemblyPath { get; private set; } = "";
@@ -58,9 +61,12 @@ internal sealed class FileLayout
             ModulesDirectory = Path.Combine(modRoot, "Modules"),
             CacheDirectory = Path.Combine(modRoot, "Cache"),
             DataDirectory = Path.Combine(modRoot, "Data"),
+            NativeTransportDirectory = Path.Combine(modRoot, "NativeTransport"),
             DoorstopConfigPath = Path.Combine(gameRoot, "doorstop_config.ini"),
             DoorstopLibraryPath = Path.Combine(gameRoot, "winhttp.dll"),
             DoorstopVersionPath = Path.Combine(gameRoot, ".doorstop_version"),
+            BundledDoorstopLibraryPath = Path.Combine(modRoot, "NativeTransport", "winhttp.dll"),
+            BundledDoorstopVersionPath = Path.Combine(modRoot, "NativeTransport", ".doorstop_version"),
             GameExecutablePath = Path.Combine(gameRoot, "Subnautica.exe"),
             BootstrapAssemblyPath = Path.Combine(modRoot, "Bootstrap", "SubnauticaSpeedrunningMod.Bootstrap.dll"),
             RuntimeAssemblyPath = Path.Combine(modRoot, "Runtime", "SubnauticaSpeedrunningMod.Runtime.dll"),
@@ -78,6 +84,7 @@ internal sealed class FileLayout
         Directory.CreateDirectory(ModulesDirectory);
         Directory.CreateDirectory(CacheDirectory);
         Directory.CreateDirectory(DataDirectory);
+        Directory.CreateDirectory(NativeTransportDirectory);
     }
 
     public void EnsureDefaultConfig()

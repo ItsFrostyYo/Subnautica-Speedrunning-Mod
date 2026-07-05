@@ -54,10 +54,19 @@ internal static class LauncherApp
             return 4;
         }
 
+        NativeTransportRepairService.EnsureInstalled(layout);
+
         if (!File.Exists(layout.DoorstopLibraryPath))
         {
             LauncherLog.Error("winhttp.dll missing at " + layout.DoorstopLibraryPath);
             Console.Error.WriteLine("The native Doorstop transport is missing. Copy winhttp.dll and .doorstop_version into the game root.");
+            return 5;
+        }
+
+        if (!File.Exists(layout.DoorstopVersionPath))
+        {
+            LauncherLog.Error(".doorstop_version missing at " + layout.DoorstopVersionPath);
+            Console.Error.WriteLine("The native Doorstop version marker is missing. Copy .doorstop_version into the game root.");
             return 5;
         }
 

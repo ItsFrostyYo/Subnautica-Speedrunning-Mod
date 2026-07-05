@@ -26,6 +26,13 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
                 return;
             }
 
+            // BetterRNG drives its own spawn pipeline through dedicated Harmony hooks
+            // and should not also receive the ranked singleplayer live loot rewrites.
+            if (ModSeedRuntimeHost.ShouldApplyBetterRngRules())
+            {
+                return;
+            }
+
             ModSeedRuntimeProfile profile = ModSeedRuntimeHost.GetProfile();
             if (profile == null || !ModSeedRuntimeHost.IsSupportedGameplayMode())
             {
