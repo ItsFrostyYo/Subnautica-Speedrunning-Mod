@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.IO;
 using System.Reflection;
+using System.Threading;
 using SubnauticaSpeedrunningMod.Shared;
 
 namespace SubnauticaSpeedrunningMod.Launcher;
@@ -29,6 +30,8 @@ internal static class LauncherApp
                     "The original Subnautica process did not close in time for the launcher handoff. Close Subnautica completely, then launch the mod again.");
                 return 12;
             }
+
+            WaitForLaunchCooldown(layout.GameExecutablePath, handoffProcessId);
         }
 
         if (!File.Exists(layout.GameExecutablePath))
@@ -204,6 +207,54 @@ internal static class LauncherApp
             LauncherLog.Warn("Failed while waiting for handoff process " + handoffProcessId + ": " + ex.Message);
             return false;
         }
+    }
+
+    private static void WaitForLaunchCooldown(string expectedExecutablePath, int ignoredProcessId)
+    {
+        string processName = Path.GetFileNameWithoutExtension(expectedExecutablePath);
+        LauncherLog.Info("Applying launch cooldown after handoff for process name " + processName + ".");
+
+        DateTime deadline = DateTime.UtcNow.AddSeconds(5);
+        while (DateTime.UtcNow < deadline)
+        {
+            if (!IsAnyMatchingGameProcessRunning(processName, ignoredProcessId))
+            {
+                Thread.Sleep(1500);
+                LauncherLog.Info("Launch cooldown complete.");
+                return;
+            }
+
+            Thread.Sleep(200);
+        }
+
+        LauncherLog.Warn("Launch cooldown timed out; proceeding with relaunch.");
+    }
+
+    private static bool IsAnyMatchingGameProcessRunning(string processName, int ignoredProcessId)
+    {
+        Process[] processes = Process.GetProcessesByName(processName);
+        for (int i = 0; i < processes.Length; i++)
+        {
+            Process process = processes[i];
+            try
+            {
+                if (ignoredProcessId > 0 && process.Id == ignoredProcessId)
+                {
+                    continue;
+                }
+
+                return true;
+            }
+            catch
+            {
+            }
+            finally
+            {
+                process.Dispose();
+            }
+        }
+
+        return false;
     }
 
     private static bool TryFindExistingGameProcess(string expectedExecutablePath, int ignoredProcessId, out int processId)

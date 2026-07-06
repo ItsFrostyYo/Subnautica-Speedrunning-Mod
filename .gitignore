@@ -7,7 +7,6 @@ Launcher/dist/
 release/*
 !release/README.md
 !release/*.json
-!release/*.zip
 
 # Local editor noise
 .vs/

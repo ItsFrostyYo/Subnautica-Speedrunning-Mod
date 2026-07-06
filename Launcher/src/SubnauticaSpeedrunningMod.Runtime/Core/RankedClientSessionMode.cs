@@ -16,6 +16,13 @@ namespace SubnauticaSpeedrunningMod.Runtime
         private static string _practiceSaveId = string.Empty;
         private static bool _practiceSaveTimerEnabled;
         private static bool _practiceSaveStartsWithSuperSeaglide;
+        private static string _multiplayerMode = string.Empty;
+        private static string _multiplayerMatchId = string.Empty;
+        private static string _multiplayerPlayerId = string.Empty;
+        private static string _multiplayerOpponentPlayerId = string.Empty;
+        private static string _multiplayerOpponentDisplayName = string.Empty;
+        private static string _multiplayerSeedId = string.Empty;
+        private static string _multiplayerSeedValue = string.Empty;
 
         public static ModClientLaunchMode LaunchMode
         {
@@ -35,6 +42,41 @@ namespace SubnauticaSpeedrunningMod.Runtime
         public static bool IsBetterRngSingleplayerSelected
         {
             get { return _launchMode == ModClientLaunchMode.ModBetterRngSingleplayer; }
+        }
+
+        public static string RankedMultiplayerMode
+        {
+            get { return _multiplayerMode; }
+        }
+
+        public static string RankedMultiplayerMatchId
+        {
+            get { return _multiplayerMatchId; }
+        }
+
+        public static string RankedMultiplayerPlayerId
+        {
+            get { return _multiplayerPlayerId; }
+        }
+
+        public static string RankedMultiplayerOpponentPlayerId
+        {
+            get { return _multiplayerOpponentPlayerId; }
+        }
+
+        public static string RankedMultiplayerOpponentDisplayName
+        {
+            get { return _multiplayerOpponentDisplayName; }
+        }
+
+        public static string RankedMultiplayerSeedId
+        {
+            get { return _multiplayerSeedId; }
+        }
+
+        public static string RankedMultiplayerSeedValue
+        {
+            get { return _multiplayerSeedValue; }
         }
 
         public static bool IsPracticeSaveSelected
@@ -66,24 +108,55 @@ namespace SubnauticaSpeedrunningMod.Runtime
         {
             _launchMode = ModClientLaunchMode.Vanilla;
             ClearPracticeSelection();
+            ClearMultiplayerSelection();
         }
 
         public static void SelectRankedMultiplayer()
         {
             _launchMode = ModClientLaunchMode.ModMultiplayer;
             ClearPracticeSelection();
+            ClearMultiplayerSelection();
+        }
+
+        public static void SelectRankedMultiplayer(string mode)
+        {
+            _launchMode = ModClientLaunchMode.ModMultiplayer;
+            ClearPracticeSelection();
+            _multiplayerMode = mode ?? string.Empty;
+        }
+
+        public static void ActivateRankedMultiplayerMatch(
+            string mode,
+            string matchId,
+            string playerId,
+            string opponentPlayerId,
+            string opponentDisplayName,
+            string seedId,
+            string seedValue)
+        {
+            _launchMode = ModClientLaunchMode.ModMultiplayer;
+            ClearPracticeSelection();
+            _multiplayerMode = mode ?? string.Empty;
+            _multiplayerMatchId = matchId ?? string.Empty;
+            _multiplayerPlayerId = playerId ?? string.Empty;
+            _multiplayerOpponentPlayerId = opponentPlayerId ?? string.Empty;
+            _multiplayerOpponentDisplayName = opponentDisplayName ?? string.Empty;
+            _multiplayerSeedId = seedId ?? string.Empty;
+            _multiplayerSeedValue = seedValue ?? string.Empty;
         }
 
         public static void SelectRankedSingleplayerPractice()
         {
             _launchMode = ModClientLaunchMode.ModSingleplayerPractice;
             ClearPracticeSelection();
+            ClearMultiplayerSelection();
         }
 
         public static void SelectBetterRngSingleplayer()
         {
             _launchMode = ModClientLaunchMode.ModBetterRngSingleplayer;
             ClearPracticeSelection();
+            ClearMultiplayerSelection();
         }
 
         public static void SelectPracticeSave(string category, string saveId, bool enableTimer, bool startsWithSuperSeaglide)
@@ -93,12 +166,14 @@ namespace SubnauticaSpeedrunningMod.Runtime
             _practiceSaveId = saveId ?? string.Empty;
             _practiceSaveTimerEnabled = enableTimer;
             _practiceSaveStartsWithSuperSeaglide = startsWithSuperSeaglide;
+            ClearMultiplayerSelection();
         }
 
         public static void ResetForMainMenu()
         {
             _launchMode = ModClientLaunchMode.Vanilla;
             ClearPracticeSelection();
+            ClearMultiplayerSelection();
         }
 
         private static void ClearPracticeSelection()
@@ -107,6 +182,17 @@ namespace SubnauticaSpeedrunningMod.Runtime
             _practiceSaveId = string.Empty;
             _practiceSaveTimerEnabled = false;
             _practiceSaveStartsWithSuperSeaglide = false;
+        }
+
+        private static void ClearMultiplayerSelection()
+        {
+            _multiplayerMode = string.Empty;
+            _multiplayerMatchId = string.Empty;
+            _multiplayerPlayerId = string.Empty;
+            _multiplayerOpponentPlayerId = string.Empty;
+            _multiplayerOpponentDisplayName = string.Empty;
+            _multiplayerSeedId = string.Empty;
+            _multiplayerSeedValue = string.Empty;
         }
     }
 }
