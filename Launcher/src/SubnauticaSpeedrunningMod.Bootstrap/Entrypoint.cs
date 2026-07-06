@@ -1,8 +1,7 @@
 using System;
 using System.IO;
-using System.Diagnostics;
 using System.Reflection;
-using System.Windows.Forms;
+using System.Runtime.InteropServices;
 using SubnauticaSpeedrunningMod.Shared;
 
 namespace Doorstop
@@ -48,11 +47,6 @@ namespace SubnauticaSpeedrunningMod.Bootstrap
                 string logPath = Path.Combine(logsDirectory, "bootstrap.log");
                 Write(logPath, "Bootstrap starting.");
                 Write(logPath, "Game root: " + gameRoot);
-                if (TryHandoffDirectLaunchToLauncher(modRoot, logPath))
-                {
-                    return;
-                }
-
                 GameInstallValidationReport validationReport = GameInstallValidator.Validate(gameRoot);
                 if (!validationReport.IsValid)
                 {
@@ -120,77 +114,52 @@ namespace SubnauticaSpeedrunningMod.Bootstrap
 
         private static bool TryHandoffDirectLaunchToLauncher(string modRoot, string logPath)
         {
-            try
+            string launcherVersion = Environment.GetEnvironmentVariable("MOD_LAUNCHER_VERSION") ?? string.Empty;
+            if (string.IsNullOrEmpty(launcherVersion) || launcherVersion.Trim().Length == 0)
             {
-                string launcherVersion = Environment.GetEnvironmentVariable("MOD_LAUNCHER_VERSION") ?? string.Empty;
-                if (!string.IsNullOrEmpty(launcherVersion) && launcherVersion.Trim().Length > 0)
-                {
-                    return false;
-                }
-
-                string launcherPath = Path.Combine(modRoot, "Launch Mod.exe");
-                if (!File.Exists(launcherPath))
-                {
-                    Write(logPath, "Direct launch handoff skipped because launcher was not found at " + launcherPath);
-                    return false;
-                }
-
-                Process currentProcess = Process.GetCurrentProcess();
-                var startInfo = new ProcessStartInfo
-                {
-                    FileName = launcherPath,
-                    WorkingDirectory = Path.GetDirectoryName(launcherPath) ?? modRoot,
-                    UseShellExecute = true
-                };
-
-                string arguments = "--handoff-pid " + currentProcess.Id;
-                string[] currentArgs = Environment.GetCommandLineArgs();
-                for (int i = 1; i < currentArgs.Length; i++)
-                {
-                    arguments += " " + QuoteArgument(currentArgs[i]);
-                }
-
-                startInfo.Arguments = arguments;
-                Write(logPath, "Direct Subnautica.exe launch detected. Handing off to launcher.");
-                Process.Start(startInfo);
-                Environment.Exit(0);
-                return true;
-            }
-            catch (Exception ex)
-            {
-                Write(logPath, "Direct launch handoff failed, continuing bootstrap normally: " + ex);
-                return false;
-            }
-        }
-
-        private static string QuoteArgument(string value)
-        {
-            if (string.IsNullOrEmpty(value))
-            {
-                return "\"\"";
+                Write(logPath, "Direct Subnautica.exe launch detected. Continuing with in-process runtime initialization.");
             }
 
-            if (value.IndexOfAny(new[] { ' ', '\t', '"' }) < 0)
-            {
-                return value;
-            }
-
-            return "\"" + value.Replace("\"", "\\\"") + "\"";
+            return false;
         }
 
         private static void ShowValidationFailure(GameInstallValidationReport validationReport, string validationPath)
         {
             try
             {
-                MessageBox.Show(
+                NativeMessageBox.ShowOk(
                     validationReport.ToUserFacingMessage() + Environment.NewLine + Environment.NewLine + "Report: " + validationPath,
-                    "Wrong Subnautica Version",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Error,
-                    MessageBoxDefaultButton.Button1);
+                    "Wrong Subnautica Version");
             }
             catch
             {
+            }
+        }
+
+        private static class NativeMessageBox
+        {
+            private const uint MbOk = 0x00000000u;
+            private const uint MbYesNo = 0x00000004u;
+            private const uint MbIconError = 0x00000010u;
+            private const uint MbIconInformation = 0x00000040u;
+            private const uint MbTopMost = 0x00040000u;
+            public const int IdYes = 6;
+
+            [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+            private static extern int MessageBox(IntPtr hWnd, string text, string caption, uint type);
+
+            public static void ShowOk(string text, string caption)
+            {
+                MessageBox(IntPtr.Zero, text ?? string.Empty, caption ?? string.Empty, MbOk | MbIconError | MbTopMost);
+            }
+
+            public static int ShowYesNo(string text, string caption)
+            {
+                return MessageBox(
+                    IntPtr.Zero,
+                    text ?? string.Empty,
+                    caption ?? string.Empty,
+                    MbYesNo | MbIconInformation | MbTopMost);
             }
         }
     }

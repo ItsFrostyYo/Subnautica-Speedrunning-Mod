@@ -52,6 +52,13 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
                    !IsBetterRngSeedActive();
         }
 
+        public static bool IsRankedMultiplayerSeedActive()
+        {
+            return ModClientSessionMode.IsRankedMultiplayerSelected &&
+                   HasActiveSeedAssignment() &&
+                   !IsBetterRngSeedActive();
+        }
+
         public static bool IsSupportedGameplayMode()
         {
             GameMode mode = Utils.GetLegacyGameMode();
@@ -228,7 +235,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
 
         public static bool ShouldApplyAnyModdedSeedRules()
         {
-            return ShouldApplyRankedSingleplayerRules() || ShouldApplyBetterRngRules();
+            return ShouldApplyRankedSingleplayerRules() || ShouldApplyRankedMultiplayerRules() || ShouldApplyBetterRngRules();
         }
 
         public static bool ShouldApplyRankedSingleplayerRules()
@@ -265,6 +272,21 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
 
             string sceneName = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
             if (string.Equals(sceneName, "XMenu", StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        public static bool ShouldApplyRankedMultiplayerRules()
+        {
+            if (!IsSupportedGameplayMode())
+            {
+                return false;
+            }
+
+            if (!ModClientSessionMode.IsRankedMultiplayerSelected)
             {
                 return false;
             }

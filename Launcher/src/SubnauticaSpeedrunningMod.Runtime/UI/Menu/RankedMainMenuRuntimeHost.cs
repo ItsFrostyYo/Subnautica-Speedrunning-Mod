@@ -16,13 +16,15 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
         private static readonly string ModClientWatermark = "Subnautica Speedrunning Mod [" + ModClientRelease.DisplayVersion + "]";
         private const string ModModeSelectGroupName = "ModModeSelect";
         private const string ModQueueGroupName = "ModQueue";
+        private const string ModMatchmakingGroupName = "ModMatchmaking";
         private const string ModPracticeNewGameGroupName = "ModPracticeNewGame";
         private const string ModPracticeSaveGroupName = "ModPracticeSave";
         private const string LeaderboardHomeGroupName = "ModLeaderboardHome";
         private const string BetterRngSavedGamesButtonLabel = "Start a New BetterRNG Save";
         private const string FutureUpdatePlaceholderText = "Coming in a Future Update";
         private const string LeaderboardPlaceholderObjectName = "ModLeaderboardPlaceholder";
-        private const string UpdatePanelTitleText = "Update Beta-0.7.5";
+        private const string MatchmakingPlaceholderObjectName = "ModMatchmakingPlaceholder";
+        private const string UpdatePanelTitleText = "Update Beta-0.7.7";
         // Edit this message each release to show the newest client changes on the main menu.
         private const string UpdatePanelBodyText = "This Update Makes Sulphur Spawns More Common in the Active Lava Zone for BetterRNG.";
         private const string UpdatePanelBodyObjectName = "ModUpdatePanelBody";
@@ -49,6 +51,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
         private static bool _leftMenuPatched;
         private static bool _rankedModeSelectPatched;
         private static bool _rankedQueuePatched;
+        private static bool _rankedMatchmakingPatched;
         private static bool _rankedPracticeNewGamePatched;
         private static bool _practiceSavePatched;
         private static bool _leaderboardHomePatched;
@@ -86,6 +89,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
             if (_menuSceneActive)
             {
                 ModClientSessionMode.ResetForMainMenu();
+                ModRankedMatchmakingRuntimeHost.ResetForMainMenu();
                 ResetMenuState();
                 _nextMenuPatchAttemptAt = 0f;
                 ModLog.Info("Ranked UI detected XMenu scene load.");
@@ -96,6 +100,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
         {
             TryAttachPersistentRuntimeBehaviour();
             ModOverlayRuntime.SetWatermark(ModClientWatermark, true);
+            ModRankedMatchmakingRuntimeHost.Update();
 
             if (ShouldRefreshWatermarkPresentation() && Time.unscaledTime >= _nextWatermarkScanAt)
             {
@@ -135,6 +140,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
                    _leftMenuPatched &&
                    _rankedModeSelectPatched &&
                    _rankedQueuePatched &&
+                   _rankedMatchmakingPatched &&
                    _rankedPracticeNewGamePatched &&
                    _practiceSavePatched;
         }
@@ -331,6 +337,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
             _leftMenuPatched = false;
             _rankedModeSelectPatched = false;
             _rankedQueuePatched = false;
+            _rankedMatchmakingPatched = false;
             _rankedPracticeNewGamePatched = false;
             _practiceSavePatched = false;
             _leaderboardHomePatched = false;
@@ -366,6 +373,16 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
             else
             {
                 SyncRankedQueueLabels(rightSide);
+            }
+
+            if (!_rankedMatchmakingPatched)
+            {
+                EnsureRankedMatchmakingGroup(rightSide);
+                _rankedMatchmakingPatched = true;
+            }
+            else
+            {
+                SyncRankedMatchmakingGroup(rightSide);
             }
 
             if (!_rankedPracticeNewGamePatched)
@@ -524,6 +541,29 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
             ConfigureRankedQueueGroup(modGroup);
         }
 
+        private static void EnsureRankedMatchmakingGroup(MainMenuRightSide rightSide)
+        {
+            GameObject matchmakingGroup = FindGroup(rightSide, ModMatchmakingGroupName);
+            if (matchmakingGroup == null)
+            {
+                GameObject savedGamesGroup = FindGroup(rightSide, "SavedGames");
+                if (savedGamesGroup == null)
+                {
+                    ModLog.Warn("Ranked UI could not find SavedGames group to clone for Matchmaking.");
+                    return;
+                }
+
+                matchmakingGroup = UnityEngine.Object.Instantiate(savedGamesGroup, savedGamesGroup.transform.parent, false);
+                matchmakingGroup.name = ModMatchmakingGroupName;
+                matchmakingGroup.transform.SetSiblingIndex(savedGamesGroup.transform.GetSiblingIndex() + 1);
+                matchmakingGroup.SetActive(false);
+                rightSide.groups.Add(matchmakingGroup);
+            }
+
+            DisableSavedGameBehaviors(matchmakingGroup);
+            ConfigureRankedMatchmakingGroup(matchmakingGroup);
+        }
+
         private static void EnsureRankedPracticeNewGameGroup(MainMenuRightSide rightSide)
         {
             GameObject practiceGroup = FindGroup(rightSide, ModPracticeNewGameGroupName);
@@ -616,9 +656,9 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
             template.SetSiblingIndex(0);
             ConfigureActionRow(
                 template.gameObject,
-                "Ranked Multiplayer\nComing in Future Update",
+                "Ranked Multiplayer (Coming Soon)",
                 false,
-                DisabledModeSelectButtonFontSize,
+                26,
                 null);
 
             GameObject practiceRow = UnityEngine.Object.Instantiate(template.gameObject, content, false);
@@ -658,8 +698,8 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
 
             QueueRowDefinition[] rows = new QueueRowDefinition[]
             {
-                new QueueRowDefinition("Queue Survival", isInteractable: true, QueueButtonFontSize),
-                new QueueRowDefinition("Queue Creative", isInteractable: true, QueueButtonFontSize),
+                new QueueRowDefinition("Queue Survival\nComing in Future Update", isInteractable: false, DisabledQueueButtonFontSize),
+                new QueueRowDefinition("Queue Creative\nComing in Future Update", isInteractable: false, DisabledQueueButtonFontSize),
                 new QueueRowDefinition("Hardcore\nComing in Future Update", isInteractable: false, DisabledQueueButtonFontSize)
             };
 
@@ -678,6 +718,51 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
 
             SetPanelTitle(modGroup, "Queue Ranked Matches");
             ModLog.Info("Configured ModQueue group with " + rows.Length + " queue buttons.");
+        }
+
+        private static void ConfigureRankedMatchmakingGroup(GameObject matchmakingGroup)
+        {
+            if (matchmakingGroup == null)
+            {
+                return;
+            }
+
+            Transform content = matchmakingGroup.transform.Find("Scroll View/Viewport/SavedGameAreaContent");
+            if (content == null)
+            {
+                ModLog.Warn("Ranked UI could not find SavedGameAreaContent in Matchmaking panel.");
+                return;
+            }
+
+            Transform template = content.Find("NewGame");
+            if (template == null)
+            {
+                ModLog.Warn("Ranked UI could not find NewGame template row in Matchmaking panel.");
+                return;
+            }
+
+            DestroySiblingRows(content, template);
+
+            template.gameObject.SetActive(true);
+            template.name = "NewGame";
+            template.SetSiblingIndex(0);
+            ConfigureActionRow(
+                template.gameObject,
+                "Cancel Matchmaking",
+                true,
+                26,
+                delegate
+                {
+                    ModRankedMatchmakingRuntimeHost.CancelQueue();
+                    OpenRankedQueueGroup(uGUI_MainMenu.main, MainMenuRightSide.main, FindPrimaryButton("ButtonRanked"));
+                });
+
+            EnsurePanelPlaceholder(
+                matchmakingGroup,
+                content,
+                MatchmakingPlaceholderObjectName,
+                ModRankedMatchmakingRuntimeHost.GetPanelMessage());
+            SetPanelTitle(matchmakingGroup, ModRankedMatchmakingRuntimeHost.GetPanelTitle());
         }
 
         private static void ConfigureRankedPracticeNewGameGroup(GameObject practiceGroup)
@@ -865,8 +950,16 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
             {
                 button.onClick.AddListener(new UnityAction(delegate
                 {
-                    ModClientSessionMode.SelectRankedMultiplayer();
-                    ModLog.Info(definition.Label + " pressed.");
+                    if (definition.Label.IndexOf("Creative", StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        ModLog.Info("Queue Creative pressed.");
+                        StartRankedMatchmaking("Creative");
+                    }
+                    else
+                    {
+                        ModClientSessionMode.SelectRankedMultiplayer();
+                        ModLog.Info(definition.Label + " pressed.");
+                    }
                 }));
             }
 
@@ -1102,6 +1195,17 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
             SelectPrimaryButton(menu, modButton);
         }
 
+        private static void OpenRankedQueueGroup(uGUI_MainMenu menu, MainMenuRightSide rightSide, Button modButton)
+        {
+            if (rightSide == null)
+            {
+                return;
+            }
+
+            rightSide.OpenGroup(ModQueueGroupName);
+            SelectPrimaryButton(menu, modButton);
+        }
+
         private static void OpenPracticeSaveGroup(uGUI_MainMenu menu, MainMenuRightSide rightSide, Button practiceButton)
         {
             if (rightSide == null)
@@ -1136,6 +1240,21 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
                     menu.OnButtonHardcore();
                     break;
             }
+        }
+
+        private static void StartRankedMatchmaking(string mode)
+        {
+            ModClientSessionMode.SelectRankedMultiplayer(mode);
+            ModRankedMatchmakingRuntimeHost.StartQueue(mode);
+
+            MainMenuRightSide rightSide = MainMenuRightSide.main;
+            if (rightSide != null)
+            {
+                rightSide.OpenGroup(ModMatchmakingGroupName);
+            }
+
+            Button rankedButton = FindPrimaryButton("ButtonRanked");
+            SelectPrimaryButton(uGUI_MainMenu.main, rankedButton);
         }
 
         private static void SelectPrimaryButton(uGUI_MainMenu menu, Button button)
@@ -1383,9 +1502,9 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
             {
                 ConfigureActionRow(
                     content.GetChild(0).gameObject,
-                    "Ranked Multiplayer\nComing in Future Update",
+                    "Ranked Multiplayer (Coming Soon)",
                     false,
-                    DisabledModeSelectButtonFontSize,
+                    26,
                     null);
             }
 
@@ -1422,8 +1541,8 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
 
             QueueRowDefinition[] rows = new QueueRowDefinition[]
             {
-                new QueueRowDefinition("Queue Survival", isInteractable: true, QueueButtonFontSize),
-                new QueueRowDefinition("Queue Creative", isInteractable: true, QueueButtonFontSize),
+                new QueueRowDefinition("Queue Survival\nComing in Future Update", isInteractable: false, DisabledQueueButtonFontSize),
+                new QueueRowDefinition("Queue Creative\nComing in Future Update", isInteractable: false, DisabledQueueButtonFontSize),
                 new QueueRowDefinition("Hardcore\nComing in Future Update", isInteractable: false, DisabledQueueButtonFontSize)
             };
 
@@ -1443,6 +1562,17 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
             }
 
             SetPanelTitle(modGroup, "Queue Ranked Matches");
+        }
+
+        private static void SyncRankedMatchmakingGroup(MainMenuRightSide rightSide)
+        {
+            GameObject matchmakingGroup = FindGroup(rightSide, ModMatchmakingGroupName);
+            if (matchmakingGroup == null)
+            {
+                return;
+            }
+
+            ConfigureRankedMatchmakingGroup(matchmakingGroup);
         }
 
         private static void SyncRankedPracticeNewGameGroup(MainMenuRightSide rightSide)

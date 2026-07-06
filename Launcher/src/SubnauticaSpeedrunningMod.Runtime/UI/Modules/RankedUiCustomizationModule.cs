@@ -9,6 +9,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
 
         public void Initialize(RuntimeContext context)
         {
+            ModRankedMatchmakingRuntimeHost.Install(context);
             ModOptionsPanelRuntime.Install();
             ModMainMenuRuntimeHost.Install(context);
         }

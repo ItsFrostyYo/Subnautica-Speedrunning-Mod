@@ -33,6 +33,8 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
         private static float _survivalSpawnX;
         private static float _survivalSpawnZ;
         private static string _survivalSpawnLabel = string.Empty;
+        private static ModSeedDefinition _pendingExternalSeed;
+        private static GameMode _pendingExternalSeedMode = GameMode.None;
 
         public static void Initialize(RuntimeContext context)
         {
@@ -206,6 +208,28 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
             }
         }
 
+        public static void PreparePendingExternalSeed(GameMode mode, string seedId, string seedValue, string description)
+        {
+            lock (Sync)
+            {
+                if (!_initialized || !IsSupportedSeedMode(mode))
+                {
+                    return;
+                }
+
+                ModSeedDefinition seedDefinition = ModSeedDefinition.CreateDefaultActiveSeed();
+                seedDefinition.SeedId = string.IsNullOrEmpty(seedId) ? GetSeedIdForMode(mode) : seedId;
+                seedDefinition.SeedValue = string.IsNullOrEmpty(seedValue) ? seedDefinition.SeedId + "-match" : seedValue;
+                seedDefinition.Description = string.IsNullOrEmpty(description) ? ("External " + mode + " multiplayer seed.") : description;
+                seedDefinition.Creative = ModCreativeSeedDefinition.CreateDefault();
+                seedDefinition.Survival = ModSurvivalSeedDefinition.CreateTemplate();
+                seedDefinition.Normalize();
+                _pendingExternalSeed = seedDefinition;
+                _pendingExternalSeedMode = mode;
+                ModLog.Info("Prepared pending external seed '" + seedDefinition.SeedId + "' / '" + seedDefinition.SeedValue + "' for mode '" + mode + "'.");
+            }
+        }
+
         public static bool HasActiveSeedAssignment()
         {
             lock (Sync)
@@ -324,6 +348,15 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
 
         private static ModSeedDefinition CreateSeedForSlot(string saveSlot, GameMode mode, bool continueMode)
         {
+            if (_pendingExternalSeed != null && _pendingExternalSeedMode == mode)
+            {
+                ModSeedDefinition externalSeed = CloneSeedDefinition(_pendingExternalSeed);
+                _pendingExternalSeed = null;
+                _pendingExternalSeedMode = GameMode.None;
+                externalSeed.Normalize();
+                return externalSeed;
+            }
+
             ModSeedDefinition seedDefinition = ModSeedDefinition.CreateDefaultActiveSeed();
             seedDefinition.SeedId = GetSeedIdForMode(mode);
             seedDefinition.SeedValue = BuildSeedValue(saveSlot, mode, continueMode);
@@ -459,7 +492,22 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
 
         private static bool DoesSeedIdMatchMode(string seedId, GameMode mode)
         {
-            return string.Equals(seedId, GetSeedIdForMode(mode), StringComparison.OrdinalIgnoreCase);
+            if (string.Equals(seedId, GetSeedIdForMode(mode), StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            switch (mode)
+            {
+                case GameMode.Creative:
+                    return string.Equals(seedId, "Creative-Multiplayer", StringComparison.OrdinalIgnoreCase);
+                case GameMode.Survival:
+                    return string.Equals(seedId, "Survival-Multiplayer", StringComparison.OrdinalIgnoreCase);
+                case GameMode.Hardcore:
+                    return string.Equals(seedId, "Hardcore-Multiplayer", StringComparison.OrdinalIgnoreCase);
+                default:
+                    return false;
+            }
         }
 
         private static void DeleteExistingSlotSeedFiles(string saveSlot)
@@ -522,6 +570,22 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
                 Creative = ModCreativeSeedDefinition.CreateDefault(),
                 Survival = ModSurvivalSeedDefinition.CreateTemplate()
             };
+        }
+
+        private static ModSeedDefinition CloneSeedDefinition(ModSeedDefinition seedDefinition)
+        {
+            if (seedDefinition == null)
+            {
+                return ModSeedDefinition.CreateDefaultActiveSeed();
+            }
+
+            using (MemoryStream stream = new MemoryStream())
+            {
+                SeedSerializer.Serialize(stream, seedDefinition);
+                stream.Position = 0L;
+                ModSeedDefinition clone = SeedSerializer.Deserialize(stream) as ModSeedDefinition;
+                return clone ?? ModSeedDefinition.CreateDefaultActiveSeed();
+            }
         }
 
         private static void EnsureDefaultSeedFile(string path, ModSeedDefinition seedDefinition)
