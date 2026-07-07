@@ -121,7 +121,7 @@ internal static class LauncherUpdateService
             string assetUrl = ReadString(root, "zipUrl");
             if (string.IsNullOrWhiteSpace(assetUrl))
             {
-                assetUrl = ModClientRelease.ReleaseDownloadBaseUrl + zipFileName;
+                assetUrl = ModClientRelease.BuildReleaseAssetUrl(versionLabel, zipFileName);
             }
 
             update = new AvailableUpdate(versionLabel, zipFileName, assetUrl);

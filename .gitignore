@@ -2,6 +2,8 @@
 **/bin/
 **/obj/
 Launcher/dist/
+Launcher/publish/
+Installer/publish/
 
 # Local release artifacts
 release/*

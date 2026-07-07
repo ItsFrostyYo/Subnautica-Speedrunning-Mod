@@ -24,7 +24,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
         private const string FutureUpdatePlaceholderText = "Coming in a Future Update";
         private const string LeaderboardPlaceholderObjectName = "ModLeaderboardPlaceholder";
         private const string MatchmakingPlaceholderObjectName = "ModMatchmakingPlaceholder";
-        private const string UpdatePanelTitleText = "Update Beta-0.7.7";
+        private const string UpdatePanelTitleText = "Update Beta-0.7.8";
         // Edit this message each release to show the newest client changes on the main menu.
         private const string UpdatePanelBodyText = "This Update Makes Sulphur Spawns More Common in the Active Lava Zone for BetterRNG.";
         private const string UpdatePanelBodyObjectName = "ModUpdatePanelBody";
