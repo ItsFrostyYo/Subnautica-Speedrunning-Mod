@@ -289,6 +289,53 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
                 true);
         }
 
+        public static ModSeedRuntimeProfile CreateRankedBatchSurvivalProfile()
+        {
+            ModSeedDefinition definition = new ModSeedDefinition
+            {
+                SeedId = "RankedSurvivalBatch",
+                SeedValue = "ranked-survival-batch",
+                Description = "Ranked survival batch-set runtime profile.",
+                Creative = ModCreativeSeedDefinition.CreateDefault(),
+                Survival = new ModSurvivalSeedDefinition
+                {
+                    Spawn = ModSurvivalSpawnDefinition.CreateDefault(),
+                    Defaults = new ModSurvivalDefaultsDefinition
+                    {
+                        DisableFishSchools = true,
+                        BlockCreaturesInPrisonAquarium = true,
+                        RestrictStalkersToKelpForest = true,
+                        StalkerToothDropProbability = 100f,
+                        FixBadMetal = false,
+                        StalkerBitesDropTeeth = false,
+                        ForceSecondGold = false
+                    },
+                    Fragments = new List<ModSpawnMultiplierEntry>(),
+                    Resources = new List<ModSpawnMultiplierEntry>(),
+                    Creatures = new List<ModSpawnMultiplierEntry>(),
+                    Biomes = new List<ModBiomeMultiplierEntry>(),
+                    Always = new List<ModSpawnMultiplierEntry>(),
+                    AlwaysBiomeMultipliers = new List<ModBiomeMultiplierEntry>(),
+                    AlwaysBiomeTechMultipliers = new List<ModBiomeTechMultiplierEntry>(),
+                    ManualCreatureSpawns = ModSeedReferenceCatalog.CreateDefaultManualCreatureSpawns()
+                }
+            };
+
+            return new ModSeedRuntimeProfile(
+                definition,
+                new Dictionary<TechType, float>(),
+                new Dictionary<TechType, float>(),
+                new Dictionary<TechType, float>(),
+                new Dictionary<TechType, float>(),
+                new Dictionary<BiomeType, float>(),
+                new Dictionary<BiomeType, float>(),
+                new Dictionary<BiomeType, Dictionary<TechType, float>>(),
+                BuildManualCreatureSpawnMap(definition.Survival.ManualCreatureSpawns, null),
+                BuildBiomeSet(ModSeedReferenceCatalog.KelpForestBiomes),
+                BuildBiomeSet(ModSeedReferenceCatalog.PrisonAquariumBiomes),
+                false);
+        }
+
         private static Dictionary<TechType, float> BuildTechTypeMap(List<ModSpawnMultiplierEntry> entries, string groupName, ModSeedRollContext rollContext)
         {
             Dictionary<TechType, float> values = new Dictionary<TechType, float>();

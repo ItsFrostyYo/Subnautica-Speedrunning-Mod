@@ -21,10 +21,15 @@ namespace SubnauticaSpeedrunningMod.Runtime
                     return;
                 }
 
-                string clientDataDirectory = Path.Combine(Path.Combine(context.ModRoot, "Data"), "Client");
-                Directory.CreateDirectory(clientDataDirectory);
-                _identityPath = Path.Combine(clientDataDirectory, "client-identity.xml");
+                string clientDirectory = Path.Combine(context.ModRoot, "Client");
+                Directory.CreateDirectory(clientDirectory);
+
+                string legacyClientDirectory = Path.Combine(Path.Combine(context.ModRoot, "Data"), "Client");
+                string legacyIdentityPath = Path.Combine(legacyClientDirectory, "client-identity.xml");
+                _identityPath = Path.Combine(clientDirectory, "client-identity.xml");
+                MigrateLegacyIdentityFile(legacyIdentityPath, _identityPath);
                 _identity = LoadOrCreateIdentity(_identityPath);
+                TryDeleteLegacyDataDirectory(Path.Combine(context.ModRoot, "Data"));
                 _initialized = true;
                 ModLog.Info("Client identity loaded: playerId='" + _identity.PlayerId + "', displayName='" + _identity.DisplayName + "'.");
             }
@@ -93,6 +98,33 @@ namespace SubnauticaSpeedrunningMod.Runtime
             using (FileStream stream = File.Create(path))
             {
                 Serializer.Serialize(stream, identity);
+            }
+        }
+
+        private static void MigrateLegacyIdentityFile(string legacyPath, string newPath)
+        {
+            if (!File.Exists(legacyPath) || File.Exists(newPath))
+            {
+                return;
+            }
+
+            Directory.CreateDirectory(Path.GetDirectoryName(newPath));
+            File.Copy(legacyPath, newPath, false);
+            ModLog.Info("Migrated client identity into '" + newPath + "'.");
+        }
+
+        private static void TryDeleteLegacyDataDirectory(string legacyDataDirectory)
+        {
+            try
+            {
+                if (Directory.Exists(legacyDataDirectory) &&
+                    Directory.GetFileSystemEntries(legacyDataDirectory).Length == 0)
+                {
+                    Directory.Delete(legacyDataDirectory, false);
+                }
+            }
+            catch
+            {
             }
         }
     }

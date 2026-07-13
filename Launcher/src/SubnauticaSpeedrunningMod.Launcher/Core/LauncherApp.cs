@@ -13,7 +13,7 @@ internal static class LauncherApp
         var layout = FileLayout.Discover();
         LauncherRuntimeGuards.InstallGlobalHandlers(() => layout);
         layout.EnsureDirectories();
-        LauncherLog.Initialize(layout.LogsDirectory);
+        LauncherLog.Initialize(layout.LauncherLogsDirectory);
         LauncherLog.Info("Launcher starting.");
         LauncherLog.Info("Launcher version: " + LauncherVersion.DisplayVersion);
         LauncherLog.Info("Mod root: " + layout.ModRoot);

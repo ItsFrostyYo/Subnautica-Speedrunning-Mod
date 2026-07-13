@@ -11,10 +11,8 @@ internal sealed class UpdateProgressWindow : Form
     private static readonly string[] PreservedModDirectories =
     {
         "Config",
-        "Data",
         "Logs",
-        "Cache",
-        "Modules"
+        "Client"
     };
 
     private readonly UpdateArguments _options;

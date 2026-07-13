@@ -13,6 +13,10 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
         private const string AssignedSlotsDirectoryName = "AssignedSlots";
         private const string ActiveSeedFileName = "active-seed.xml";
         private const string SurvivalTemplateFileName = "survival-seed-template.xml";
+        private const float RankedClipCMinX = -135f;
+        private const float RankedClipCMaxX = -70f;
+        private const float RankedClipCMinZ = 70f;
+        private const float RankedClipCMaxZ = 100f;
 
         private static readonly object Sync = new object();
         private static readonly XmlSerializer SeedSerializer = new XmlSerializer(typeof(ModSeedDefinition));
@@ -45,7 +49,9 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
                     return;
                 }
 
-                _seedsDirectoryPath = Path.Combine(Path.Combine(context.ModRoot, "Data"), SeedsDirectoryName);
+                string installedSeedsRoot = Path.Combine(context.ModRoot, SeedsDirectoryName);
+                _seedsDirectoryPath = Path.Combine(installedSeedsRoot, "State");
+                MigrateLegacySeedStateDirectory(Path.Combine(Path.Combine(context.ModRoot, "Data"), SeedsDirectoryName), _seedsDirectoryPath);
                 Directory.CreateDirectory(_seedsDirectoryPath);
                 _assignedSlotsDirectoryPath = Path.Combine(_seedsDirectoryPath, AssignedSlotsDirectoryName);
                 Directory.CreateDirectory(_assignedSlotsDirectoryPath);
@@ -92,6 +98,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
                 _creativeSpawnResolved = false;
                 _survivalSpawnResolved = false;
                 _initialized = true;
+                TryDeleteLegacyDataDirectory(Path.Combine(context.ModRoot, "Data"));
 
                 ModLog.Info("Seed system initialized from '" + _seedsDirectoryPath + "'.");
                 ModLog.Info("Active seed id: '" + GetActiveSeedId() + "'.");
@@ -369,6 +376,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
             seedDefinition.Creative = ModCreativeSeedDefinition.CreateDefault();
             seedDefinition.Survival = ModSurvivalSeedDefinition.CreateTemplate();
             seedDefinition.Normalize();
+            SimplifyCreativeSingleplayerSeed(seedDefinition);
             return seedDefinition;
         }
 
@@ -663,6 +671,64 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
             }
         }
 
+        private static void MigrateLegacySeedStateDirectory(string legacyDirectoryPath, string newDirectoryPath)
+        {
+            if (!Directory.Exists(legacyDirectoryPath) || Directory.Exists(newDirectoryPath))
+            {
+                return;
+            }
+
+            Directory.CreateDirectory(newDirectoryPath);
+
+            string[] directories = Directory.GetDirectories(legacyDirectoryPath, "*", SearchOption.AllDirectories);
+            for (int i = 0; i < directories.Length; i++)
+            {
+                string relativePath = directories[i].Substring(legacyDirectoryPath.Length).TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                Directory.CreateDirectory(Path.Combine(newDirectoryPath, relativePath));
+            }
+
+            string[] files = Directory.GetFiles(legacyDirectoryPath, "*", SearchOption.AllDirectories);
+            for (int i = 0; i < files.Length; i++)
+            {
+                string relativePath = files[i].Substring(legacyDirectoryPath.Length).TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                string destinationPath = Path.Combine(newDirectoryPath, relativePath);
+                Directory.CreateDirectory(Path.GetDirectoryName(destinationPath));
+                File.Copy(files[i], destinationPath, true);
+            }
+
+            ModLog.Info("Migrated legacy seed state into '" + newDirectoryPath + "'.");
+        }
+
+        private static void TryDeleteLegacyDataDirectory(string legacyDataDirectory)
+        {
+            try
+            {
+                if (!Directory.Exists(legacyDataDirectory))
+                {
+                    return;
+                }
+
+                DeleteLegacySubdirectoryIfEmpty(Path.Combine(legacyDataDirectory, "Client"));
+                DeleteLegacySubdirectoryIfEmpty(Path.Combine(legacyDataDirectory, "Seeds"));
+
+                if (Directory.GetFileSystemEntries(legacyDataDirectory).Length == 0)
+                {
+                    Directory.Delete(legacyDataDirectory, false);
+                }
+            }
+            catch
+            {
+            }
+        }
+
+        private static void DeleteLegacySubdirectoryIfEmpty(string path)
+        {
+            if (Directory.Exists(path) && Directory.GetFileSystemEntries(path).Length == 0)
+            {
+                Directory.Delete(path, false);
+            }
+        }
+
         private static void TryDeleteObsoletePath(string path, bool recursive)
         {
             if (string.IsNullOrEmpty(path) || !File.Exists(path) && !Directory.Exists(path))
@@ -730,15 +796,62 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
                 }
             }
 
-            if (clipCRanges.Count > 0 && clipCRanges.Count != survivalSpawn.Ranges.Count)
+            ModCreativeSpawnRangeDefinition clipCRange = clipCRanges.Count > 0
+                ? clipCRanges[0]
+                : new ModCreativeSpawnRangeDefinition
+                {
+                    Name = "Clip C",
+                    Weight = 1f,
+                    MinX = RankedClipCMinX,
+                    MaxX = RankedClipCMaxX,
+                    MinZ = RankedClipCMinZ,
+                    MaxZ = RankedClipCMaxZ
+                };
+
+            if (clipCRanges.Count == 0)
             {
-                survivalSpawn.Ranges = clipCRanges;
                 changed = true;
             }
 
-            if (survivalSpawn.Ranges.Count == 1 && survivalSpawn.Ranges[0] != null && !ApproximatelyEquals(survivalSpawn.Ranges[0].Weight, 1f))
+            if (clipCRanges.Count != 1 || survivalSpawn.Ranges.Count != 1 || !ReferenceEquals(survivalSpawn.Ranges[0], clipCRange))
             {
-                survivalSpawn.Ranges[0].Weight = 1f;
+                survivalSpawn.Ranges = new List<ModCreativeSpawnRangeDefinition> { clipCRange };
+                changed = true;
+            }
+
+            if (!string.Equals(clipCRange.Name, "Clip C", StringComparison.Ordinal))
+            {
+                clipCRange.Name = "Clip C";
+                changed = true;
+            }
+
+            if (!ApproximatelyEquals(clipCRange.Weight, 1f))
+            {
+                clipCRange.Weight = 1f;
+                changed = true;
+            }
+
+            if (!ApproximatelyEquals(clipCRange.MinX, RankedClipCMinX))
+            {
+                clipCRange.MinX = RankedClipCMinX;
+                changed = true;
+            }
+
+            if (!ApproximatelyEquals(clipCRange.MaxX, RankedClipCMaxX))
+            {
+                clipCRange.MaxX = RankedClipCMaxX;
+                changed = true;
+            }
+
+            if (!ApproximatelyEquals(clipCRange.MinZ, RankedClipCMinZ))
+            {
+                clipCRange.MinZ = RankedClipCMinZ;
+                changed = true;
+            }
+
+            if (!ApproximatelyEquals(clipCRange.MaxZ, RankedClipCMaxZ))
+            {
+                clipCRange.MaxZ = RankedClipCMaxZ;
                 changed = true;
             }
 
@@ -749,6 +862,60 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
             }
 
             return changed;
+        }
+
+        private static bool SimplifyCreativeSingleplayerSeed(ModSeedDefinition seedDefinition)
+        {
+            if (seedDefinition == null ||
+                !string.Equals(seedDefinition.SeedId, "Creative-Singleplayer", StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            if (seedDefinition.Survival == null)
+            {
+                seedDefinition.Survival = ModSurvivalSeedDefinition.CreateTemplate();
+            }
+
+            bool changed = false;
+            List<ModSpawnMultiplierEntry> fragmentEntries;
+            changed |= ResetSeedGroup(seedDefinition.Survival.Fragments, out fragmentEntries);
+            seedDefinition.Survival.Fragments = fragmentEntries;
+
+            List<ModSpawnMultiplierEntry> resourceEntries;
+            changed |= ResetSeedGroup(seedDefinition.Survival.Resources, out resourceEntries);
+            seedDefinition.Survival.Resources = resourceEntries;
+
+            List<ModSpawnMultiplierEntry> creatureEntries;
+            changed |= ResetSeedGroup(seedDefinition.Survival.Creatures, out creatureEntries);
+            seedDefinition.Survival.Creatures = creatureEntries;
+
+            List<ModBiomeMultiplierEntry> biomeEntries;
+            changed |= ResetSeedGroup(seedDefinition.Survival.Biomes, out biomeEntries);
+            seedDefinition.Survival.Biomes = biomeEntries;
+
+            List<ModManualCreatureSpawnEntry> manualCreatureSpawns;
+            changed |= ResetSeedGroup(seedDefinition.Survival.ManualCreatureSpawns, out manualCreatureSpawns);
+            seedDefinition.Survival.ManualCreatureSpawns = manualCreatureSpawns;
+            return changed;
+        }
+
+        private static bool ResetSeedGroup<TEntry>(List<TEntry> entries, out List<TEntry> normalizedEntries)
+        {
+            if (entries == null)
+            {
+                normalizedEntries = new List<TEntry>();
+                return true;
+            }
+
+            if (entries.Count == 0)
+            {
+                normalizedEntries = entries;
+                return false;
+            }
+
+            normalizedEntries = new List<TEntry>();
+            return true;
         }
 
         private static bool MaterializeSpawnEntries(List<ModSpawnMultiplierEntry> entries, string groupName, ModSeedRollContext rollContext)
@@ -1248,6 +1415,11 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
                     seedDefinition.Survival.Always = ModSeedReferenceCatalog.CreateDefaultAlwaysEntries();
                     changed = true;
                 }
+            }
+
+            if (SimplifyCreativeSingleplayerSeed(seedDefinition))
+            {
+                changed = true;
             }
 
             return changed;

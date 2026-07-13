@@ -13,6 +13,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
         private static bool _stalkerToothHookInstalled;
         private static bool _lootDistributionHookInstalled;
         private static bool _betterRngHookInstalled;
+        private static bool _consoleCommandHookInstalled;
 
         public static void Install(RuntimeContext context)
         {
@@ -32,6 +33,12 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
                 return BetterRngFixedProfile;
             }
 
+            ModSeedRuntimeProfile rankedSurvivalBatchProfile = ModRankedSurvivalBatchSeedRuntime.GetActiveProfile();
+            if (rankedSurvivalBatchProfile != null)
+            {
+                return rankedSurvivalBatchProfile;
+            }
+
             return ModSeedStore.GetActiveProfile();
         }
 
@@ -47,6 +54,11 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
 
         public static bool IsRankedSingleplayerSeedActive()
         {
+            if (ModRankedSurvivalBatchSeedRuntime.IsCurrentSessionActive())
+            {
+                return true;
+            }
+
             return ModClientSessionMode.IsRankedSingleplayerPracticeSelected &&
                    HasActiveSeedAssignment() &&
                    !IsBetterRngSeedActive();
@@ -132,6 +144,8 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
             _startupHooksInstallAttempted = true;
             _betterRngHookInstalled = ModBetterRngRuntimeHost.EnsureInstalled();
             bool forceSecondGoldInstalled = ModForceSecondGoldRuntime.EnsureInstalled();
+            bool rankedSurvivalBatchInstalled = ModRankedSurvivalBatchSeedRuntime.EnsureInstalled();
+            _consoleCommandHookInstalled = ModConsoleCommandsRuntime.EnsureInstalled();
             _fishSchoolHookInstalled = ModFishSchoolHookRuntime.EnsureInstalled();
             _stalkerToothHookInstalled = ModStalkerToothHookRuntime.EnsureInstalled();
             ModLog.Info(
@@ -139,8 +153,14 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
                 "BetterRngHooksInstalled=" +
                 _betterRngHookInstalled +
                 ", " +
+                "RankedSurvivalBatchInstalled=" +
+                rankedSurvivalBatchInstalled +
+                ", " +
                 "ForceSecondGoldInstalled=" +
                 forceSecondGoldInstalled +
+                ", " +
+                "ConsoleCommandsInstalled=" +
+                _consoleCommandHookInstalled +
                 ", FishSchoolHooksInstalled=" +
                 _fishSchoolHookInstalled +
                 ", StalkerToothHooksInstalled=" +
@@ -183,6 +203,14 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
             if (ShouldApplyBetterRngRules())
             {
                 return false;
+            }
+
+            Vector3 rankedBatchStartPoint;
+            if (mode == GameMode.Survival &&
+                ModRankedSurvivalBatchSeedRuntime.TryGetFreshRunStartPoint(out rankedBatchStartPoint, out description))
+            {
+                startPoint = new Vector3(rankedBatchStartPoint.x, 0f, rankedBatchStartPoint.z);
+                return true;
             }
 
             string saveSlot = Utils.GetSavegameDir() ?? string.Empty;
@@ -248,6 +276,11 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
             if (!ModClientSessionMode.IsRankedSingleplayerPracticeSelected)
             {
                 return false;
+            }
+
+            if (ModRankedSurvivalBatchSeedRuntime.IsCurrentSessionActive())
+            {
+                return true;
             }
 
             if (HasActiveSeedAssignment())

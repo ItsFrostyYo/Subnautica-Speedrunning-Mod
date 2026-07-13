@@ -21,12 +21,16 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
         private const string ModPracticeSaveGroupName = "ModPracticeSave";
         private const string LeaderboardHomeGroupName = "ModLeaderboardHome";
         private const string BetterRngSavedGamesButtonLabel = "Start a New BetterRNG Save";
+        private const string RaceButtonLabel = "Race";
+        private const string QueueRandomRaceComingSoonLabel = "Queue Random Race (Coming Soon)";
+        private const string HostRaceComingSoonLabel = "Host Race (Coming Soon)";
+        private const string SingleplayerRacePracticeLabel = "Singleplayer Race Practice";
         private const string FutureUpdatePlaceholderText = "Coming in a Future Update";
         private const string LeaderboardPlaceholderObjectName = "ModLeaderboardPlaceholder";
         private const string MatchmakingPlaceholderObjectName = "ModMatchmakingPlaceholder";
-        private const string UpdatePanelTitleText = "Update Beta-0.7.8";
+        private const string UpdatePanelTitleText = "Update Beta-0.8.0";
         // Edit this message each release to show the newest client changes on the main menu.
-        private const string UpdatePanelBodyText = "This Update Makes Sulphur Spawns More Common in the Active Lava Zone for BetterRNG.";
+        private const string UpdatePanelBodyText = "This Update Switched Ranked over to Set Batches for Set Seeds for Same RNG Between Players and Added Custom Commands for Testing and Practice | command \"ssg\" to Toggle On and Off Temporary Super Seaglide, and \"ssgp\" for Permanent Super Seaglide Toggle";
         private const string UpdatePanelBodyObjectName = "ModUpdatePanelBody";
         private const int WatermarkFontSize = 18;
         private const int QueueButtonFontSize = 34;
@@ -474,7 +478,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
                 modObject.name = "ButtonRanked";
                 modObject.transform.SetSiblingIndex(playButton.transform.GetSiblingIndex());
                 RemoveLocalizationComponents(modObject);
-                SetButtonLabel(modObject, "Ranked");
+                SetButtonLabel(modObject, RaceButtonLabel);
 
                 Button modButton = modObject.GetComponent<Button>();
                 if (modButton != null)
@@ -487,11 +491,11 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
                 }
 
                 ResetMainMenuButtonVisualState(modObject);
-                ModLog.Info("Inserted Ranked button above Play.");
+                ModLog.Info("Inserted Race button above Play.");
             }
             else
             {
-                SetButtonLabel(modTransform.gameObject, "Ranked");
+                SetButtonLabel(modTransform.gameObject, RaceButtonLabel);
             }
         }
 
@@ -656,17 +660,27 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
             template.SetSiblingIndex(0);
             ConfigureActionRow(
                 template.gameObject,
-                "Ranked Multiplayer (Coming Soon)",
+                QueueRandomRaceComingSoonLabel,
+                false,
+                26,
+                null);
+
+            GameObject hostRow = UnityEngine.Object.Instantiate(template.gameObject, content, false);
+            hostRow.name = "NewGame";
+            hostRow.transform.SetSiblingIndex(1);
+            ConfigureActionRow(
+                hostRow,
+                HostRaceComingSoonLabel,
                 false,
                 26,
                 null);
 
             GameObject practiceRow = UnityEngine.Object.Instantiate(template.gameObject, content, false);
             practiceRow.name = "NewGame";
-            practiceRow.transform.SetSiblingIndex(1);
+            practiceRow.transform.SetSiblingIndex(2);
             ConfigureActionRow(
                 practiceRow,
-                "Ranked Singleplayer Practice",
+                SingleplayerRacePracticeLabel,
                 true,
                 26,
                 delegate
@@ -716,7 +730,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
                 ConfigureQueueRow(row, rows[i]);
             }
 
-            SetPanelTitle(modGroup, "Queue Ranked Matches");
+            SetPanelTitle(modGroup, "Queue Random Race");
             ModLog.Info("Configured ModQueue group with " + rows.Length + " queue buttons.");
         }
 
@@ -1471,7 +1485,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
             Transform modTransform = FindDescendantByName(menu.primaryOptions.transform, "ButtonRanked");
             if (modTransform != null)
             {
-                SetButtonLabel(modTransform.gameObject, "Ranked");
+                SetButtonLabel(modTransform.gameObject, RaceButtonLabel);
                 Button modButton = modTransform.GetComponent<Button>();
                 if (modButton != null)
                 {
@@ -1502,7 +1516,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
             {
                 ConfigureActionRow(
                     content.GetChild(0).gameObject,
-                    "Ranked Multiplayer (Coming Soon)",
+                    QueueRandomRaceComingSoonLabel,
                     false,
                     26,
                     null);
@@ -1512,7 +1526,17 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
             {
                 ConfigureActionRow(
                     content.GetChild(1).gameObject,
-                    "Ranked Singleplayer Practice",
+                    HostRaceComingSoonLabel,
+                    false,
+                    26,
+                    null);
+            }
+
+            if (content.childCount > 2)
+            {
+                ConfigureActionRow(
+                    content.GetChild(2).gameObject,
+                    SingleplayerRacePracticeLabel,
                     true,
                     26,
                     delegate
@@ -1561,7 +1585,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
                 ApplyQueueRowPresentation(row, rows[i]);
             }
 
-            SetPanelTitle(modGroup, "Queue Ranked Matches");
+            SetPanelTitle(modGroup, "Queue Random Race");
         }
 
         private static void SyncRankedMatchmakingGroup(MainMenuRightSide rightSide)
@@ -1985,6 +2009,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
                     string.Equals(text.text, "New Game", StringComparison.OrdinalIgnoreCase) ||
                     string.Equals(text.text, ModPracticeSaveCatalog.GetPrimaryCategoryDisplayName(), StringComparison.OrdinalIgnoreCase) ||
                     string.Equals(text.text, "Queue Ranked Matches", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(text.text, "Queue Random Race", StringComparison.OrdinalIgnoreCase) ||
                     string.Equals(text.text, "Leaderboard", StringComparison.OrdinalIgnoreCase) ||
                     string.Equals(text.text, UpdatePanelTitleText, StringComparison.OrdinalIgnoreCase))
                 {

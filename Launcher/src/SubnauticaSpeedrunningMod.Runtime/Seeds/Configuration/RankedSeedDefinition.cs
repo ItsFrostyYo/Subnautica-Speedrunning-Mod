@@ -10,7 +10,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
     {
         public const string DefaultActiveSeedId = "Survival-Singleplayer";
         public const string DefaultActiveSeedValue = "survival-singleplayer-default";
-        public const string DefaultActiveSeedDescription = "Default singleplayer Survival seed definition for ranked route testing and deterministic spawn rolls.";
+        public const string DefaultActiveSeedDescription = "Default singleplayer Survival seed definition for ranked route testing.";
         public const string LegacyDefaultActiveSeedId = "creative-range-test";
         public const string LegacyDefaultActiveSeedValue = "creative-range-test-default";
 
@@ -72,7 +72,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
             return CreateDefaultActiveSeed();
         }
 
-        public static void NormalizeDeterministicAlias(ref string seedId, ref string seedValue)
+        public static void NormalizeLegacyCreativeRangeAlias(ref string seedId, ref string seedValue)
         {
             if (string.Equals(seedId, DefaultActiveSeedId, StringComparison.OrdinalIgnoreCase) &&
                 string.Equals(seedValue, DefaultActiveSeedValue, StringComparison.OrdinalIgnoreCase))
@@ -450,9 +450,9 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
                     {
                         Name = "Clip C",
                         Weight = 1f,
-                        MinX = -175f,
-                        MaxX = -75f,
-                        MinZ = 50f,
+                        MinX = -135f,
+                        MaxX = -70f,
+                        MinZ = 70f,
                         MaxZ = 100f
                     }
                 }
