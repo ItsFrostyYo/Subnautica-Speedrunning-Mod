@@ -8,7 +8,9 @@ internal static class DoorstopConfigWriter
 
         if (File.Exists(layout.DoorstopConfigPath))
         {
-            var backupPath = Path.Combine(layout.ConfigDirectory, "doorstop_config.backup.ini");
+            var backupDirectory = Path.Combine(layout.ConfigDirectory, "Backups");
+            Directory.CreateDirectory(backupDirectory);
+            var backupPath = Path.Combine(backupDirectory, "doorstop_config.original.ini");
             if (!File.Exists(backupPath))
             {
                 File.Copy(layout.DoorstopConfigPath, backupPath, false);

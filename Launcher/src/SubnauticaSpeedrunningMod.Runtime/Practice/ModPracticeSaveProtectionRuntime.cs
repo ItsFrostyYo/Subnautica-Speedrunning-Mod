@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Reflection;
 using HarmonyLib;
+using SubnauticaSpeedrunningMod.Runtime.Seeds;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -10,7 +11,8 @@ namespace SubnauticaSpeedrunningMod.Runtime.Practice
     internal static class ModPracticeSaveProtectionRuntime
     {
         private const string HarmonyId = "subnautica.speedrunning.mod.practice.protection";
-        private const string SaveBlockedMessage = "Saving is disabled for packaged practice saves.";
+        private const string PracticeSaveBlockedMessage = "Saving is disabled for packaged practice saves.";
+        private const string RankedSaveBlockedMessage = "Saving is disabled for ranked runs.";
         private const string SaveDisabledLabel = "Save Disabled";
 
         private static bool _installAttempted;
@@ -76,7 +78,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.Practice
 
         private static bool SaveGamePrefix()
         {
-            if (!IsPracticeSaveSessionActive())
+            if (!IsProtectedSaveSessionActive())
             {
                 return true;
             }
@@ -87,7 +89,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.Practice
 
         private static bool SaveGameAsyncPrefix(ref IEnumerator __result)
         {
-            if (!IsPracticeSaveSessionActive())
+            if (!IsProtectedSaveSessionActive())
             {
                 return true;
             }
@@ -103,7 +105,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.Practice
 
         private static void ApplyReadOnlyMenuState(IngameMenu menu)
         {
-            if (menu == null || !IsPracticeSaveSessionActive())
+            if (menu == null || !IsProtectedSaveSessionActive())
             {
                 return;
             }
@@ -132,9 +134,20 @@ namespace SubnauticaSpeedrunningMod.Runtime.Practice
             }
         }
 
+        private static bool IsProtectedSaveSessionActive()
+        {
+            return IsPracticeSaveSessionActive() || IsRankedSessionActive();
+        }
+
         private static bool IsPracticeSaveSessionActive()
         {
             return ModClientSessionMode.IsPracticeSaveSelected;
+        }
+
+        private static bool IsRankedSessionActive()
+        {
+            return ModSeedRuntimeHost.IsRankedSingleplayerSeedActive() ||
+                   ModSeedRuntimeHost.IsRankedMultiplayerSeedActive();
         }
 
         private static void ShowSaveBlockedMessage()
@@ -145,7 +158,14 @@ namespace SubnauticaSpeedrunningMod.Runtime.Practice
             }
 
             _lastSaveBlockedMessageAt = Time.unscaledTime;
-            ErrorMessage.AddMessage(SaveBlockedMessage);
+            if (IsRankedSessionActive())
+            {
+                ErrorMessage.AddMessage(RankedSaveBlockedMessage);
+                ModLog.Info("Blocked manual save while ranked session was active.");
+                return;
+            }
+
+            ErrorMessage.AddMessage(PracticeSaveBlockedMessage);
             ModLog.Info("Blocked manual save for packaged practice save '" + ModClientSessionMode.PracticeSaveId + "'.");
         }
     }

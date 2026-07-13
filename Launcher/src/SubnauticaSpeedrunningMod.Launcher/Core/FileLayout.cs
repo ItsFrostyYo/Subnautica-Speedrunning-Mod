@@ -7,11 +7,9 @@ internal sealed class FileLayout
     public string BootstrapDirectory { get; private set; } = "";
     public string RuntimeDirectory { get; private set; } = "";
     public string ConfigDirectory { get; private set; } = "";
-    public string LogsDirectory { get; private set; } = "";
+    public string LogsRootDirectory { get; private set; } = "";
+    public string LauncherLogsDirectory { get; private set; } = "";
     public string CrashReportsDirectory { get; private set; } = "";
-    public string ModulesDirectory { get; private set; } = "";
-    public string CacheDirectory { get; private set; } = "";
-    public string DataDirectory { get; private set; } = "";
     public string NativeTransportDirectory { get; private set; } = "";
     public string DoorstopConfigPath { get; private set; } = "";
     public string DoorstopLibraryPath { get; private set; } = "";
@@ -56,11 +54,9 @@ internal sealed class FileLayout
             BootstrapDirectory = Path.Combine(modRoot, "Bootstrap"),
             RuntimeDirectory = Path.Combine(modRoot, "Runtime"),
             ConfigDirectory = Path.Combine(modRoot, "Config"),
-            LogsDirectory = Path.Combine(modRoot, "Logs"),
+            LogsRootDirectory = Path.Combine(modRoot, "Logs"),
+            LauncherLogsDirectory = Path.Combine(Path.Combine(modRoot, "Logs"), "Launcher"),
             CrashReportsDirectory = Path.Combine(modRoot, Path.Combine("Logs", "CrashReports")),
-            ModulesDirectory = Path.Combine(modRoot, "Modules"),
-            CacheDirectory = Path.Combine(modRoot, "Cache"),
-            DataDirectory = Path.Combine(modRoot, "Data"),
             NativeTransportDirectory = Path.Combine(modRoot, "NativeTransport"),
             DoorstopConfigPath = Path.Combine(gameRoot, "doorstop_config.ini"),
             DoorstopLibraryPath = Path.Combine(gameRoot, "winhttp.dll"),
@@ -79,11 +75,9 @@ internal sealed class FileLayout
         Directory.CreateDirectory(BootstrapDirectory);
         Directory.CreateDirectory(RuntimeDirectory);
         Directory.CreateDirectory(ConfigDirectory);
-        Directory.CreateDirectory(LogsDirectory);
+        Directory.CreateDirectory(LogsRootDirectory);
+        Directory.CreateDirectory(LauncherLogsDirectory);
         Directory.CreateDirectory(CrashReportsDirectory);
-        Directory.CreateDirectory(ModulesDirectory);
-        Directory.CreateDirectory(CacheDirectory);
-        Directory.CreateDirectory(DataDirectory);
         Directory.CreateDirectory(NativeTransportDirectory);
     }
 
@@ -101,7 +95,6 @@ internal sealed class FileLayout
   <ApiBaseUrl>https://example.invalid/</ApiBaseUrl>
   <ModEnvironmentName>production</ModEnvironmentName>
   <EnableCrashUpload>false</EnableCrashUpload>
-  <ModuleFolder>Modules</ModuleFolder>
   <LogLevel>Info</LogLevel>
 </LoaderConfig>
 """;

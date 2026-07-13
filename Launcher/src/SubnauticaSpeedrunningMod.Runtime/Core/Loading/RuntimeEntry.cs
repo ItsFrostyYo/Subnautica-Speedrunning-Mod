@@ -25,13 +25,11 @@ namespace SubnauticaSpeedrunningMod.Runtime
             }
 
             string modRoot = PathLayout.GetModRoot();
-            ModLog.Initialize(Path.Combine(modRoot, "Logs"));
+            ModLog.Initialize(Path.Combine(Path.Combine(modRoot, "Logs"), "Runtime"));
             ModLog.Info("Runtime initializing.");
             ModLog.Info("Mod root: " + modRoot);
             string gameRoot = PathLayout.GetGameRoot(modRoot);
             ModLog.Info("Game root: " + gameRoot);
-
-            AppDomain.CurrentDomain.AssemblyLoad += CurrentDomain_AssemblyLoad;
 
             LoaderConfig config = LoaderConfigStore.Load(
                 Path.Combine(Path.Combine(modRoot, "Config"), "loader.config.xml"));
@@ -74,26 +72,12 @@ namespace SubnauticaSpeedrunningMod.Runtime
             ModLog.Info("Networking enabled: " + config.EnableNetworking);
             ModLog.Info("Mod environment: " + config.ModEnvironmentName);
             ModLog.Info("Crash upload enabled: " + config.EnableCrashUpload);
-            ModLog.Info("Module folder: " + config.ModuleFolder);
 
             ModLanguageFileRuntimeHost.Initialize(modRoot, gameRoot);
             ModSeedStore.Initialize(context);
 
             IList<IModModule> builtInModules = BuiltInModuleLoader.LoadModules(context);
-            IList<IModModule> externalModules = ModuleLoader.LoadModules(context);
             ModLog.Info("Loaded built-in module count: " + builtInModules.Count);
-            ModLog.Info("Loaded external module count: " + externalModules.Count);
-        }
-
-        private static void CurrentDomain_AssemblyLoad(object sender, AssemblyLoadEventArgs args)
-        {
-            try
-            {
-                ModLog.Info("Assembly loaded: " + args.LoadedAssembly.FullName);
-            }
-            catch
-            {
-            }
         }
     }
 }

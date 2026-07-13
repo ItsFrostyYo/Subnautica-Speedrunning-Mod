@@ -13,7 +13,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
         {
             string seedId = definition != null && !string.IsNullOrEmpty(definition.SeedId) ? definition.SeedId : "ranked-seed";
             string seedValue = definition != null && !string.IsNullOrEmpty(definition.SeedValue) ? definition.SeedValue : seedId + "-default";
-            ModSeedDefinition.NormalizeDeterministicAlias(ref seedId, ref seedValue);
+            ModSeedDefinition.NormalizeLegacyCreativeRangeAlias(ref seedId, ref seedValue);
             _rootKey = seedId + "|" + seedValue;
         }
 

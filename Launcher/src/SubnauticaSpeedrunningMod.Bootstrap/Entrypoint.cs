@@ -39,8 +39,9 @@ namespace SubnauticaSpeedrunningMod.Bootstrap
                 string bootstrapDirectory = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
                 string modRoot = Directory.GetParent(bootstrapDirectory).FullName;
                 string gameRoot = Directory.GetParent(modRoot).FullName;
-                string logsDirectory = Path.Combine(modRoot, "Logs");
-                string crashDirectory = Path.Combine(logsDirectory, "CrashReports");
+                string logsRootDirectory = Path.Combine(modRoot, "Logs");
+                string logsDirectory = Path.Combine(logsRootDirectory, "Bootstrap");
+                string crashDirectory = Path.Combine(logsRootDirectory, "CrashReports");
                 Directory.CreateDirectory(logsDirectory);
                 Directory.CreateDirectory(crashDirectory);
 
@@ -88,8 +89,9 @@ namespace SubnauticaSpeedrunningMod.Bootstrap
                     string assemblyPath = Assembly.GetExecutingAssembly().Location;
                     string bootstrapDirectory = Path.GetDirectoryName(assemblyPath);
                     string modRoot = Directory.GetParent(bootstrapDirectory).FullName;
-                    string logsDirectory = Path.Combine(modRoot, "Logs");
-                    string crashDirectory = Path.Combine(logsDirectory, "CrashReports");
+                    string logsRootDirectory = Path.Combine(modRoot, "Logs");
+                    string logsDirectory = Path.Combine(logsRootDirectory, "Bootstrap");
+                    string crashDirectory = Path.Combine(logsRootDirectory, "CrashReports");
                     Directory.CreateDirectory(logsDirectory);
                     Directory.CreateDirectory(crashDirectory);
                     string logPath = Path.Combine(logsDirectory, "bootstrap.log");
