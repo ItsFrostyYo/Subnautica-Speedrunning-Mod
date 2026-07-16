@@ -48,6 +48,10 @@
       <HintPath>$(SubnauticaManagedRoot)\UnityEngine.UI.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <Reference Include="LitJson">
+      <HintPath>$(SubnauticaManagedRoot)\LitJson.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="..\Shared\ModCompatibilityProfile.cs" Link="Shared\ModCompatibilityProfile.cs" />

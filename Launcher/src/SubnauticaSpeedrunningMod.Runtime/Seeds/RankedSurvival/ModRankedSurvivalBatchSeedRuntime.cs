@@ -28,6 +28,12 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
         private static float _spawnX;
         private static float _spawnZ;
         private static string _spawnDescription = string.Empty;
+        private static bool _pendingExternalSelection;
+        private static string _pendingExternalSeedName = string.Empty;
+        private static string _pendingExternalSeedDirectoryPath = string.Empty;
+        private static float _pendingExternalSpawnX;
+        private static float _pendingExternalSpawnZ;
+        private static string _pendingExternalSpawnDescription = string.Empty;
 
         public static bool EnsureInstalled()
         {
@@ -77,7 +83,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
 
         public static bool IsCurrentSessionActive()
         {
-            return ModClientSessionMode.IsRankedSingleplayerPracticeSelected &&
+            return (ModClientSessionMode.IsRankedSingleplayerPracticeSelected || ModClientSessionMode.IsRankedMultiplayerSelected) &&
                    _activeMode == GameMode.Survival &&
                    !string.IsNullOrEmpty(_activeSaveSlot) &&
                    !string.IsNullOrEmpty(_activeSeedDirectoryPath);
@@ -112,6 +118,27 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
             _spawnX = 0f;
             _spawnZ = 0f;
             _spawnDescription = string.Empty;
+            _pendingExternalSelection = false;
+            _pendingExternalSeedName = string.Empty;
+            _pendingExternalSeedDirectoryPath = string.Empty;
+            _pendingExternalSpawnX = 0f;
+            _pendingExternalSpawnZ = 0f;
+            _pendingExternalSpawnDescription = string.Empty;
+        }
+
+        public static void PreparePendingExternalSelection(
+            string seedDirectoryPath,
+            string seedName,
+            float spawnX,
+            float spawnZ,
+            string spawnDescription)
+        {
+            _pendingExternalSelection = !string.IsNullOrEmpty(seedDirectoryPath);
+            _pendingExternalSeedDirectoryPath = seedDirectoryPath ?? string.Empty;
+            _pendingExternalSeedName = seedName ?? string.Empty;
+            _pendingExternalSpawnX = spawnX;
+            _pendingExternalSpawnZ = spawnZ;
+            _pendingExternalSpawnDescription = spawnDescription ?? string.Empty;
         }
 
         private static bool StartNewGamePrefix(uGUI_MainMenu __instance, GameMode gameMode, ref IEnumerator __result)
@@ -130,9 +157,8 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
             return _installed &&
                    _available &&
                    gameMode == GameMode.Survival &&
-                   ModClientSessionMode.IsRankedSingleplayerPracticeSelected &&
+                   (ModClientSessionMode.IsRankedSingleplayerPracticeSelected || ModClientSessionMode.IsRankedMultiplayerSelected) &&
                    !ModClientSessionMode.IsBetterRngSingleplayerSelected &&
-                   !ModClientSessionMode.IsRankedMultiplayerSelected &&
                    SaveLoadManager.main != null;
         }
 
@@ -202,7 +228,12 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
 
             string seedDirectoryPath;
             string seedName;
-            if (!ModRankedSurvivalBatchSeedCatalog.TryChooseSeed(out seedDirectoryPath, out seedName))
+            if (_pendingExternalSelection)
+            {
+                seedDirectoryPath = _pendingExternalSeedDirectoryPath;
+                seedName = _pendingExternalSeedName;
+            }
+            else if (!ModRankedSurvivalBatchSeedCatalog.TryChooseSeed(out seedDirectoryPath, out seedName))
             {
                 error =
                     "Ranked survival batch seed files are missing. Expected folders like 'BS 1' or 'BS 2' inside '" +
@@ -221,7 +252,23 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
             _activeMode = mode;
             _activeSeedName = seedName ?? string.Empty;
             _activeSeedDirectoryPath = seedDirectoryPath;
-            ModRankedSurvivalBatchSeedCatalog.ResolveClipCSpawn(out _spawnX, out _spawnZ, out _spawnDescription, _activeSeedName);
+            if (_pendingExternalSelection)
+            {
+                _spawnX = _pendingExternalSpawnX;
+                _spawnZ = _pendingExternalSpawnZ;
+                _spawnDescription = _pendingExternalSpawnDescription ?? string.Empty;
+            }
+            else
+            {
+                ModRankedSurvivalBatchSeedCatalog.ResolveClipCSpawn(out _spawnX, out _spawnZ, out _spawnDescription, _activeSeedName);
+            }
+
+            _pendingExternalSelection = false;
+            _pendingExternalSeedName = string.Empty;
+            _pendingExternalSeedDirectoryPath = string.Empty;
+            _pendingExternalSpawnX = 0f;
+            _pendingExternalSpawnZ = 0f;
+            _pendingExternalSpawnDescription = string.Empty;
             _spawnResolved = true;
 
             ModLog.Info(

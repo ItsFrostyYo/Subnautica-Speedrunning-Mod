@@ -39,7 +39,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
             }
 
             uGUI_OptionsPanel panel = UnityEngine.Object.FindObjectOfType<uGUI_OptionsPanel>();
-            if (panel == null || !panel.isActiveAndEnabled || !panel.gameObject.activeInHierarchy)
+            if (panel == null || !panel.isActiveAndEnabled || !panel.gameObject.activeInHierarchy || !IsMainMenuOptionsPanel(panel))
             {
                 return;
             }
@@ -55,7 +55,23 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
             }
 
             uGUI_OptionsPanel panel = UnityEngine.Object.FindObjectOfType<uGUI_OptionsPanel>();
-            return panel != null && panel.isActiveAndEnabled && panel.gameObject.activeInHierarchy;
+            return panel != null && panel.isActiveAndEnabled && panel.gameObject.activeInHierarchy && IsMainMenuOptionsPanel(panel);
+        }
+
+        private static bool IsMainMenuOptionsPanel(uGUI_OptionsPanel panel)
+        {
+            Transform current = panel != null ? panel.transform : null;
+            while (current != null)
+            {
+                if (string.Equals(current.name, "Options", StringComparison.Ordinal))
+                {
+                    return true;
+                }
+
+                current = current.parent;
+            }
+
+            return false;
         }
 
         internal static void PatchPanel(uGUI_OptionsPanel panel)

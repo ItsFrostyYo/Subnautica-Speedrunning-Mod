@@ -78,6 +78,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.RunTracking
             SceneManager.sceneLoaded += OnSceneLoaded;
             PrecursorTeleporter.TeleportEventStart += OnPortalLoadingStarted;
             PrecursorTeleporter.TeleportEventEnd += OnPortalLoadingEnded;
+            ModPrivateRaceCountdownRuntimeHost.Install(context);
             _installed = true;
             ModLog.Info("Singleplayer run tracking host installed.");
         }
@@ -90,6 +91,11 @@ namespace SubnauticaSpeedrunningMod.Runtime.RunTracking
 
             if (string.Equals(scene.name, "XMenu", StringComparison.Ordinal))
             {
+                if (ModClientSessionMode.IsRankedMultiplayerSelected && !_timerCompleted)
+                {
+                    ModPrivateRaceCountdownRuntimeHost.NotifyForfeitIfNeeded();
+                }
+
                 ResetTimerSession();
             }
         }
@@ -123,6 +129,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.RunTracking
             RefreshActiveSeedForSaveContext();
             bool rankedPracticeActive = ModSeedRuntimeHost.IsRankedSingleplayerSeedActive();
             bool rankedMultiplayerActive = ModSeedRuntimeHost.IsRankedMultiplayerSeedActive();
+            bool rankedRunActive = rankedPracticeActive || rankedMultiplayerActive;
             bool betterRngTimedActive = IsBetterRngTimedRunActive();
             bool practiceSaveTimedActive = IsPracticeSaveTimedRunActive();
             UpdateDeathLoadingState();
@@ -140,13 +147,21 @@ namespace SubnauticaSpeedrunningMod.Runtime.RunTracking
                 _state != ModGameStateKind.MainMenu;
             ModSeedWorldRuntime.Update(seedWorldActive, (rankedPracticeActive || rankedMultiplayerActive) && _state == ModGameStateKind.InGame);
 
-            ConsistentScreenshotClip.Update(rankedPracticeActive && IsCreativeSingleplayerRunActive());
+            bool worldReady =
+                _state == ModGameStateKind.InGame &&
+                LargeWorldStreamer.main != null &&
+                LargeWorldStreamer.main.IsReady() &&
+                LargeWorldStreamer.main.IsWorldSettled() &&
+                string.Equals(SceneManager.GetActiveScene().name, "Main", StringComparison.OrdinalIgnoreCase);
+            ModPrivateRaceCountdownRuntimeHost.Update(rankedMultiplayerActive, _state == ModGameStateKind.InGame, worldReady);
+
+            ConsistentScreenshotClip.Update((rankedPracticeActive || rankedMultiplayerActive) && IsCreativeSingleplayerRunActive());
 
             if (_state == ModGameStateKind.Booting || _state == ModGameStateKind.MainMenu)
             {
                 ResetMenuOnlyPollingState();
                 ModOverlayRuntime.SetTimer(FormatTimer(_elapsedSeconds), false);
-                ModOverlayRuntime.SetRunStatus(GetRunStatusTitle(), GetRunStatusSubtitle(), SingleplayerRunTitleColor, false);
+                ModOverlayRuntime.SetRunStatus(GetRunStatusTitle(), GetRunStatusSubtitle(), GetRunStatusComparison(), SingleplayerRunTitleColor, GetRunStatusComparisonColor(), false);
                 ModOverlayRuntime.SetVerification(string.Empty, string.Empty, Color.white, Color.white, false);
                 return;
             }
@@ -155,24 +170,24 @@ namespace SubnauticaSpeedrunningMod.Runtime.RunTracking
             {
                 ResetMenuOnlyPollingState();
                 ModOverlayRuntime.SetTimer(FormatTimer(0d), false);
-                ModOverlayRuntime.SetRunStatus(GetRunStatusTitle(), GetRunStatusSubtitle(), SingleplayerRunTitleColor, false);
+                ModOverlayRuntime.SetRunStatus(GetRunStatusTitle(), GetRunStatusSubtitle(), GetRunStatusComparison(), SingleplayerRunTitleColor, GetRunStatusComparisonColor(), false);
                 ModOverlayRuntime.SetVerification(string.Empty, string.Empty, Color.white, Color.white, false);
                 return;
             }
 
-            if (rankedPracticeActive)
+            if (rankedRunActive)
             {
                 UpdateCraftingState();
             }
 
             UpdateTimerLifecycle();
-            if (rankedPracticeActive)
+            if (rankedRunActive)
             {
                 UpdateRunProgress();
             }
 
             ModOverlayRuntime.SetTimer(FormatTimer(_elapsedSeconds), ShouldShowTimerUi());
-            ModOverlayRuntime.SetRunStatus(GetRunStatusTitle(), GetRunStatusSubtitle(), SingleplayerRunTitleColor, ShouldShowRunStatus());
+            ModOverlayRuntime.SetRunStatus(GetRunStatusTitle(), GetRunStatusSubtitle(), GetRunStatusComparison(), SingleplayerRunTitleColor, GetRunStatusComparisonColor(), ShouldShowRunStatus());
             ModOverlayRuntime.SetVerification(
                 _verificationTitle,
                 _verificationDetail,
@@ -443,6 +458,15 @@ namespace SubnauticaSpeedrunningMod.Runtime.RunTracking
 
             bool betterRngTimedRun = IsBetterRngTimedRunActive();
             bool practiceSaveTimedRun = IsPracticeSaveTimedRunActive();
+            if (ModClientSessionMode.IsRankedMultiplayerSelected &&
+                ModPrivateRaceCountdownRuntimeHost.DidLocalPlayerLoseRace &&
+                !_timerCompleted)
+            {
+                _timerCompleted = true;
+                _timerRunning = false;
+                ModLog.Info("Speedrun timer completed because the opponent won the private race at " + FormatTimer(_elapsedSeconds) + ".");
+            }
+
             if (_timerRunning && !_timerCompleted)
             {
                 _realTimeElapsedSeconds += Time.unscaledDeltaTime;
@@ -881,6 +905,11 @@ namespace SubnauticaSpeedrunningMod.Runtime.RunTracking
             _runProgressIndex = nextIndex;
             _runProgressSubtitle = subtitle;
             ModLog.Info("Run progress advanced to step " + nextIndex + " ('" + subtitle + "') due to " + reason + ".");
+            ModPrivateRaceCountdownRuntimeHost.OnLocalSplitAdvanced(
+                nextIndex,
+                subtitle,
+                (long)Math.Round(_realTimeElapsedSeconds * 1000d),
+                (long)Math.Round(_elapsedSeconds * 1000d));
         }
 
         private static float GetCureStartTime()
@@ -1058,22 +1087,52 @@ namespace SubnauticaSpeedrunningMod.Runtime.RunTracking
         private static string GetRunStatusTitle()
         {
             string modeLabel = GetRunModeLabel();
+            string prefix = ModClientSessionMode.IsRankedMultiplayerSelected
+                ? "In Race"
+                : "In Singleplayer Run";
             return string.IsNullOrEmpty(modeLabel)
-                ? "In Singleplayer Run"
-                : "In Singleplayer Run (" + modeLabel + ")";
+                ? prefix
+                : prefix + " (" + modeLabel + ")";
         }
 
         private static string GetRunStatusSubtitle()
         {
+            if (ModClientSessionMode.IsRankedMultiplayerSelected)
+            {
+                string opponentStatus = ModPrivateRaceCountdownRuntimeHost.GetOpponentStatusText();
+                return string.IsNullOrEmpty(opponentStatus) ? "Opponent Loading" : opponentStatus;
+            }
+
             return string.IsNullOrEmpty(_runProgressSubtitle) ? "Run has Not Started" : _runProgressSubtitle;
+        }
+
+        private static string GetRunStatusComparison()
+        {
+            if (!ModClientSessionMode.IsRankedMultiplayerSelected)
+            {
+                return string.Empty;
+            }
+
+            return ModPrivateRaceCountdownRuntimeHost.GetOpponentComparisonText();
+        }
+
+        private static Color GetRunStatusComparisonColor()
+        {
+            if (!ModClientSessionMode.IsRankedMultiplayerSelected)
+            {
+                return Color.white;
+            }
+
+            return ModPrivateRaceCountdownRuntimeHost.GetOpponentComparisonColor();
         }
 
         private static ModSingleplayerRunMode ResolveCurrentRunMode()
         {
             bool rankedPracticeActive = ModSeedRuntimeHost.IsRankedSingleplayerSeedActive();
+            bool rankedMultiplayerActive = ModSeedRuntimeHost.IsRankedMultiplayerSeedActive();
             bool betterRngTimedActive = IsBetterRngTimedRunActive();
             bool practiceSaveTimedActive = IsPracticeSaveTimedRunActive();
-            if (!rankedPracticeActive && !betterRngTimedActive && !practiceSaveTimedActive)
+            if (!rankedPracticeActive && !rankedMultiplayerActive && !betterRngTimedActive && !practiceSaveTimedActive)
             {
                 return ModSingleplayerRunMode.None;
             }
@@ -1092,7 +1151,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.RunTracking
             switch (mode)
             {
                 case GameMode.Creative:
-                    return rankedPracticeActive
+                    return (rankedPracticeActive || rankedMultiplayerActive)
                         ? ModSingleplayerRunMode.Creative
                         : ModSingleplayerRunMode.None;
                 case GameMode.Survival:
