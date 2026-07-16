@@ -142,8 +142,8 @@ namespace SubnauticaSpeedrunningMod.Runtime
             }
 
             _lastRankedConsoleBlockedMessageAt = Time.unscaledTime;
-            ErrorMessage.AddMessage("Console commands are disabled for ranked runs.");
-            ModLog.Info("Blocked console command while ranked session was active.");
+            ErrorMessage.AddMessage("Console commands are disabled for race runs.");
+            ModLog.Info("Blocked console command while race session was active.");
         }
 
         private static bool TryHandleConsoleCommand(string value)

@@ -23,6 +23,9 @@ namespace SubnauticaSpeedrunningMod.Runtime
         private static string _multiplayerOpponentDisplayName = string.Empty;
         private static string _multiplayerSeedId = string.Empty;
         private static string _multiplayerSeedValue = string.Empty;
+        private static bool _privateRaceLocalSessionActive;
+        private static bool _privateRaceLocalHost;
+        private static string _privateRaceLocalDisplayName = string.Empty;
 
         public static ModClientLaunchMode LaunchMode
         {
@@ -77,6 +80,21 @@ namespace SubnauticaSpeedrunningMod.Runtime
         public static string RankedMultiplayerSeedValue
         {
             get { return _multiplayerSeedValue; }
+        }
+
+        public static bool IsPrivateRaceLocalSessionActive
+        {
+            get { return _privateRaceLocalSessionActive; }
+        }
+
+        public static bool IsPrivateRaceLocalHost
+        {
+            get { return _privateRaceLocalHost; }
+        }
+
+        public static string PrivateRaceLocalDisplayName
+        {
+            get { return _privateRaceLocalDisplayName; }
         }
 
         public static bool IsPracticeSaveSelected
@@ -145,6 +163,33 @@ namespace SubnauticaSpeedrunningMod.Runtime
             _multiplayerSeedValue = seedValue ?? string.Empty;
         }
 
+        public static void AttachPrivateRaceLocalRoom(string displayName, bool isHost)
+        {
+            _privateRaceLocalSessionActive = true;
+            _privateRaceLocalHost = isHost;
+            _privateRaceLocalDisplayName = displayName ?? string.Empty;
+        }
+
+        public static void ActivateLocalPrivateRace(
+            string mode,
+            string displayName,
+            string seedId,
+            string seedValue)
+        {
+            _launchMode = ModClientLaunchMode.ModMultiplayer;
+            ClearPracticeSelection();
+            _multiplayerMode = mode ?? string.Empty;
+            _multiplayerMatchId = "local-private-race";
+            _multiplayerPlayerId = "local-host";
+            _multiplayerOpponentPlayerId = "pending-joiner";
+            _multiplayerOpponentDisplayName = "Waiting for Opponent";
+            _multiplayerSeedId = seedId ?? string.Empty;
+            _multiplayerSeedValue = seedValue ?? string.Empty;
+            _privateRaceLocalSessionActive = true;
+            _privateRaceLocalHost = true;
+            _privateRaceLocalDisplayName = displayName ?? string.Empty;
+        }
+
         public static void SelectRankedSingleplayerPractice()
         {
             _launchMode = ModClientLaunchMode.ModSingleplayerPractice;
@@ -193,6 +238,9 @@ namespace SubnauticaSpeedrunningMod.Runtime
             _multiplayerOpponentDisplayName = string.Empty;
             _multiplayerSeedId = string.Empty;
             _multiplayerSeedValue = string.Empty;
+            _privateRaceLocalSessionActive = false;
+            _privateRaceLocalHost = false;
+            _privateRaceLocalDisplayName = string.Empty;
         }
     }
 }

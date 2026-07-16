@@ -73,6 +73,31 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
             return !string.IsNullOrEmpty(seedDirectoryPath);
         }
 
+        public static bool TryGetSeedDirectoryByName(string seedName, out string seedDirectoryPath)
+        {
+            seedDirectoryPath = string.Empty;
+            if (string.IsNullOrEmpty(seedName))
+            {
+                return false;
+            }
+
+            List<string> directories = GetAvailableSeedDirectories();
+            for (int i = 0; i < directories.Count; i++)
+            {
+                string candidatePath = directories[i];
+                string candidateName = Path.GetFileName(candidatePath) ?? string.Empty;
+                if (!string.Equals(candidateName, seedName.Trim(), StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                seedDirectoryPath = candidatePath;
+                return true;
+            }
+
+            return false;
+        }
+
         public static void ResolveClipCSpawn(out float x, out float z, out string description, string seedName)
         {
             x = UnityEngine.Random.Range(ClipCMinX, ClipCMaxX);

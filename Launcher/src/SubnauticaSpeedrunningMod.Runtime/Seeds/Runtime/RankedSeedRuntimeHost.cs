@@ -66,6 +66,11 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
 
         public static bool IsRankedMultiplayerSeedActive()
         {
+            if (ModRankedSurvivalBatchSeedRuntime.IsCurrentSessionActive() && ModClientSessionMode.IsRankedMultiplayerSelected)
+            {
+                return true;
+            }
+
             return ModClientSessionMode.IsRankedMultiplayerSelected &&
                    HasActiveSeedAssignment() &&
                    !IsBetterRngSeedActive();

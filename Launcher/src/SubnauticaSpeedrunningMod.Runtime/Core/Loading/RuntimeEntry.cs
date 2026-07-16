@@ -33,6 +33,7 @@ namespace SubnauticaSpeedrunningMod.Runtime
 
             LoaderConfig config = LoaderConfigStore.Load(
                 Path.Combine(Path.Combine(modRoot, "Config"), "loader.config.xml"));
+            string effectiveApiBaseUrl = ModNetworkBridgeRuntimeHost.PrepareEffectiveApiBaseUrl(modRoot, config.ApiBaseUrl);
             string sessionId = Environment.GetEnvironmentVariable("MOD_SESSION_ID") ?? string.Empty;
             if (string.IsNullOrEmpty(sessionId))
             {
@@ -46,7 +47,7 @@ namespace SubnauticaSpeedrunningMod.Runtime
                 sessionId,
                 launcherVersion,
                 config,
-                new ModServerApiClient(config.ApiBaseUrl));
+                new ModServerApiClient(effectiveApiBaseUrl));
             RuntimeCrashReporter.InstallGlobalHandlers(context);
 
             GameInstallValidationReport validationReport = GameInstallValidator.Validate(gameRoot);
@@ -70,6 +71,7 @@ namespace SubnauticaSpeedrunningMod.Runtime
             ModLog.Info("Session id: " + sessionId);
             ModLog.Info("Launcher version: " + launcherVersion);
             ModLog.Info("Networking enabled: " + config.EnableNetworking);
+            ModLog.Info("Effective API base URL: " + effectiveApiBaseUrl);
             ModLog.Info("Mod environment: " + config.ModEnvironmentName);
             ModLog.Info("Crash upload enabled: " + config.EnableCrashUpload);
 

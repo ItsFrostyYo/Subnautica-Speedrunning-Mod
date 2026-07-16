@@ -308,7 +308,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
                         StalkerToothDropProbability = 100f,
                         FixBadMetal = false,
                         StalkerBitesDropTeeth = false,
-                        ForceSecondGold = false
+                        ForceSecondGold = true
                     },
                     Fragments = new List<ModSpawnMultiplierEntry>(),
                     Resources = new List<ModSpawnMultiplierEntry>(),
