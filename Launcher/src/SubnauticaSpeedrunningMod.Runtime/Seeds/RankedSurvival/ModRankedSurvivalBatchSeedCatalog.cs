@@ -10,7 +10,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
     {
         private const string InstalledSeedsFolderName = "Seeds";
         private const string RankedSurvivalFolderName = "RankedSurvival";
-        private const string SeedDirectoryPrefix = "BS ";
+        private const string SeedDirectoryPrefix = "BS";
         private const float ClipCMinX = -135f;
         private const float ClipCMaxX = -70f;
         private const float ClipCMinZ = 70f;

@@ -278,41 +278,42 @@ namespace SubnauticaSpeedrunningMod.Runtime
                 return string.Empty;
             }
 
+            string opponentName = GetOpponentDisplayNameOrDefault();
             ModMatchPlayerDto opponent = GetOpponentPlayer();
             if (opponent == null)
             {
-                return "Opponent Loading";
+                return opponentName + " Loading";
             }
 
             if (!string.IsNullOrEmpty(opponent.result))
             {
                 if (string.Equals(opponent.result, "Forfeit", StringComparison.OrdinalIgnoreCase))
                 {
-                    return "Opponent Forfeit";
+                    return opponentName + " Forfeited";
                 }
 
                 if (string.Equals(opponent.result, "Win", StringComparison.OrdinalIgnoreCase))
                 {
-                    return "Opponent Won";
+                    return opponentName + " Won";
                 }
             }
 
             string status = string.Empty;
             if (!string.IsNullOrEmpty(opponent.currentSplitDisplayName))
             {
-                status = "Opponent " + opponent.currentSplitDisplayName;
+                status = opponentName + " " + opponent.currentSplitDisplayName;
             }
             else if (opponent.ready)
             {
-                status = "Opponent Ready";
+                status = opponentName + " Ready";
             }
             else if (opponent.connected)
             {
-                status = "Opponent Connected";
+                status = opponentName + " Connected";
             }
             else
             {
-                status = "Opponent Loading";
+                status = opponentName + " Loading";
             }
 
             return status;
@@ -480,6 +481,22 @@ namespace SubnauticaSpeedrunningMod.Runtime
             }
 
             return null;
+        }
+
+        private static string GetOpponentDisplayNameOrDefault()
+        {
+            ModMatchPlayerDto opponent = GetOpponentPlayer();
+            if (opponent != null && !string.IsNullOrEmpty(opponent.displayName))
+            {
+                return opponent.displayName;
+            }
+
+            if (!string.IsNullOrEmpty(ModClientSessionMode.RankedMultiplayerOpponentDisplayName))
+            {
+                return ModClientSessionMode.RankedMultiplayerOpponentDisplayName;
+            }
+
+            return "Opponent";
         }
 
         private static bool TryBuildComparisonText(out string comparisonText, out Color comparisonColor)
@@ -652,6 +669,7 @@ namespace SubnauticaSpeedrunningMod.Runtime
             if (!inGameplay || !ModClientSessionMode.IsRankedMultiplayerSelected || !IsMatchCompleted)
             {
                 _raceOverMenuShown = false;
+                ModOverlayRuntime.SetTopCenterMessage(string.Empty, string.Empty, Color.white, Color.white, false);
                 return;
             }
 
@@ -664,6 +682,10 @@ namespace SubnauticaSpeedrunningMod.Runtime
             if (string.Equals(localPlayer.result, "Win", StringComparison.OrdinalIgnoreCase))
             {
                 _finishSent = true;
+                string detailText = string.Equals(GetOpponentPlayer() != null ? GetOpponentPlayer().result : string.Empty, "Forfeit", StringComparison.OrdinalIgnoreCase)
+                    ? GetOpponentDisplayNameOrDefault() + " forfeited."
+                    : "Return to room when ready.";
+                ModOverlayRuntime.SetTopCenterMessage("You Win", detailText, AheadComparisonColor, Color.white, true);
                 return;
             }
 
@@ -679,7 +701,11 @@ namespace SubnauticaSpeedrunningMod.Runtime
                 return;
             }
 
-            ModOverlayRuntime.SetCenterMessage("Race Over\nOpponent Won", BehindComparisonColor, true);
+            string titleText = string.Equals(localPlayer.result, "Forfeit", StringComparison.OrdinalIgnoreCase)
+                ? "Race Forfeited"
+                : "Opponent Won";
+            ModOverlayRuntime.SetTopCenterMessage(titleText, "Return to room when ready.", BehindComparisonColor, Color.white, true);
+            ModOverlayRuntime.SetCenterMessage(string.Empty, Color.white, false);
             try
             {
                 if (IngameMenu.main != null)
@@ -712,6 +738,7 @@ namespace SubnauticaSpeedrunningMod.Runtime
             _localLatestSplitName = string.Empty;
             _forfeitSent = false;
             _raceOverMenuShown = false;
+            ModOverlayRuntime.SetTopCenterMessage(string.Empty, string.Empty, Color.white, Color.white, false);
             ModOverlayRuntime.SetCenterMessage(string.Empty, Color.white, false);
         }
     }

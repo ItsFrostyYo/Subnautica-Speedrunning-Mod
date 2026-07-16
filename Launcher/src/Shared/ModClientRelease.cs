@@ -6,7 +6,7 @@ namespace SubnauticaSpeedrunningMod.Shared
     {
         public const string ChannelName = "Beta";
         public const string SemanticVersion = "0.9.0";
-        public const string DisplayVersion = "Beta-0.9.0";
+        public const string DisplayVersion = "Beta-0.9.1";
         public const string NumericVersion = "0.9.0.0";
         public const string RepositoryOwner = "ItsFrostyYo";
         public const string RepositoryName = "Subnautica-Speedrunning-Mod";

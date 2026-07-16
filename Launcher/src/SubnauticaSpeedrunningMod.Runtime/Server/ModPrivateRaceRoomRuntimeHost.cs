@@ -25,6 +25,7 @@ namespace SubnauticaSpeedrunningMod.Runtime
         private static readonly string[] SupportedModes = { "Survival", "Creative" };
         private static readonly object Sync = new object();
         private const string HarmonyId = "subnautica.speedrunning.mod.private.race.room";
+        private const float CreativeCountdownSettleDelaySeconds = 2f;
 
         private static RuntimeContext _context;
         private static bool _installed;
@@ -46,6 +47,7 @@ namespace SubnauticaSpeedrunningMod.Runtime
         private static bool _localLaunchPending;
         private static bool _localCountdownStarted;
         private static bool _localSkipIssued;
+        private static bool _localIntroTriggerAuthorized;
         private static bool _localCreativeCountdownLockActive;
         private static float _localWaitingStartedAt;
         private static float _localCountdownEndsAt;
@@ -592,7 +594,7 @@ namespace SubnauticaSpeedrunningMod.Runtime
             if (!ModRankedSurvivalBatchSeedCatalog.TryChooseSeed(out seedDirectoryPath, out seedName))
             {
                 ShowStartError(
-                    "Ranked survival batch seed files are missing. Add folders like 'BS 1' and 'BS 2' inside '" +
+                    "Ranked survival batch seed files are missing. Add folders like 'BS1' inside '" +
                     ModRankedSurvivalBatchSeedCatalog.GetInstalledRootPath() +
                     "'.");
                 return false;
@@ -603,7 +605,7 @@ namespace SubnauticaSpeedrunningMod.Runtime
             string spawnDescription;
             ModRankedSurvivalBatchSeedCatalog.ResolveClipCSpawn(out spawnX, out spawnZ, out spawnDescription, seedName);
             ModRankedSurvivalBatchSeedRuntime.PreparePendingExternalSelection(seedDirectoryPath, seedName, spawnX, spawnZ, spawnDescription);
-            seedId = string.IsNullOrEmpty(seedName) ? "BS ?" : seedName;
+            seedId = string.IsNullOrEmpty(seedName) ? "BS?" : seedName;
             seedValue = seedId +
                 "|clipc|" +
                 spawnX.ToString("0.###", CultureInfo.InvariantCulture) +
@@ -902,7 +904,7 @@ namespace SubnauticaSpeedrunningMod.Runtime
             string seedValue = string.IsNullOrEmpty(_currentState.seedValue) ? _lastPreparedSeedValue : _currentState.seedValue.Trim();
             if (string.IsNullOrEmpty(seedId))
             {
-                seedId = gameMode == GameMode.Creative ? "PrivateRace-Creative" : "BS 1";
+                seedId = gameMode == GameMode.Creative ? "PrivateRace-Creative" : "BS1";
             }
 
             if (string.IsNullOrEmpty(seedValue))
@@ -1151,7 +1153,6 @@ namespace SubnauticaSpeedrunningMod.Runtime
                 return;
             }
 
-            EnsureSurvivalIntroCountdownState();
             HideIntroPromptText(intro);
             ModPrivateRaceCountdownRuntimeHost.NotifyLocalReadyForCountdown();
 
@@ -1163,7 +1164,7 @@ namespace SubnauticaSpeedrunningMod.Runtime
 
             if (!ModPrivateRaceCountdownRuntimeHost.IsOpponentReady)
             {
-                ModOverlayRuntime.SetCenterMessage("Waiting for Opponent", Color.white, true);
+                ModOverlayRuntime.SetCenterMessage("Waiting for Opponent to Load", Color.white, true);
                 return;
             }
 
@@ -1199,24 +1200,6 @@ namespace SubnauticaSpeedrunningMod.Runtime
                    string.Equals(UnityEngine.SceneManagement.SceneManager.GetActiveScene().name, "Main", StringComparison.OrdinalIgnoreCase);
         }
 
-        private static void EnsureSurvivalIntroCountdownState()
-        {
-            EscapePod escapePod = EscapePod.main;
-            if (escapePod == null || escapePod.IsPlayingIntroCinematic())
-            {
-                return;
-            }
-
-            try
-            {
-                escapePod.TriggerIntroCinematic();
-            }
-            catch (Exception ex)
-            {
-                ModLog.Warn("Failed to trigger intro cinematic for local private race countdown: " + ex.Message);
-            }
-        }
-
         private static void HideIntroPromptText(uGUI_SceneIntro intro)
         {
             if (intro == null)
@@ -1246,7 +1229,15 @@ namespace SubnauticaSpeedrunningMod.Runtime
             if (escapePod != null && !escapePod.IsPlayingIntroCinematic())
             {
                 ModLog.Info("Starting intro cinematic for local private race skip.");
-                escapePod.TriggerIntroCinematic();
+                _localIntroTriggerAuthorized = true;
+                try
+                {
+                    escapePod.TriggerIntroCinematic();
+                }
+                finally
+                {
+                    _localIntroTriggerAuthorized = false;
+                }
             }
 
             float timeoutAt = Time.unscaledTime + 2f;
@@ -1275,24 +1266,48 @@ namespace SubnauticaSpeedrunningMod.Runtime
 
         private static void UpdateCreativeCountdown()
         {
+            bool loadingScreenVisible = uGUI.main != null && uGUI.main.loading != null && uGUI.main.loading.IsLoading;
             if (!IsCreativeCountdownReady())
             {
+                _localWaitingStartedAt = 0f;
+                ModOverlayRuntime.SetCenterMessage(string.Empty, Color.white, false);
                 return;
             }
 
             LockCreativeCountdownPlayer();
             AlignCreativeCountdownView();
+
+            if (_localWaitingStartedAt <= 0f)
+            {
+                _localWaitingStartedAt = Time.unscaledTime;
+            }
+
+            if (Time.unscaledTime < _localWaitingStartedAt + CreativeCountdownSettleDelaySeconds)
+            {
+                if (loadingScreenVisible)
+                {
+                    ModOverlayRuntime.SetCenterMessage(string.Empty, Color.white, false);
+                    return;
+                }
+
+                ModOverlayRuntime.SetCenterMessage(
+                    ModPrivateRaceCountdownRuntimeHost.IsOpponentReady ? "Waiting for Race Start" : "Waiting for Opponent to Load",
+                    Color.white,
+                    true);
+                return;
+            }
+
             ModPrivateRaceCountdownRuntimeHost.NotifyLocalReadyForCountdown();
 
             if (!ModPrivateRaceCountdownRuntimeHost.IsLocalPlayerReady)
             {
-                ModOverlayRuntime.SetCenterMessage("Loading...", Color.white, true);
+                ModOverlayRuntime.SetCenterMessage("Waiting for Race Start", Color.white, true);
                 return;
             }
 
             if (!ModPrivateRaceCountdownRuntimeHost.IsOpponentReady)
             {
-                ModOverlayRuntime.SetCenterMessage("Waiting for Opponent", Color.white, true);
+                ModOverlayRuntime.SetCenterMessage("Waiting for Opponent to Load", Color.white, true);
                 return;
             }
 
@@ -1320,13 +1335,30 @@ namespace SubnauticaSpeedrunningMod.Runtime
 
         private static bool IsCreativeCountdownReady()
         {
-            return Player.main != null &&
-                   _localLaunchGameMode == GameMode.Creative &&
-                   string.Equals(UnityEngine.SceneManagement.SceneManager.GetActiveScene().name, "Main", StringComparison.OrdinalIgnoreCase) &&
-                   (uGUI.main == null || uGUI.main.loading == null || !uGUI.main.loading.IsLoading) &&
-                   LargeWorldStreamer.main != null &&
-                   LargeWorldStreamer.main.IsReady() &&
-                   LargeWorldStreamer.main.IsWorldSettled();
+            if (Player.main == null ||
+                _localLaunchGameMode != GameMode.Creative ||
+                !string.Equals(UnityEngine.SceneManagement.SceneManager.GetActiveScene().name, "Main", StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            if (Utils.GetLegacyGameMode() != GameMode.Creative)
+            {
+                return false;
+            }
+
+            if (uGUI.main != null && uGUI.main.loading != null && uGUI.main.loading.IsLoading)
+            {
+                return false;
+            }
+
+            if (LargeWorldStreamer.main == null || !LargeWorldStreamer.main.IsReady())
+            {
+                return false;
+            }
+
+            return _localCreativeCountdownLockActive ||
+                   (!IntroVignette.isIntroActive && !Player.main.cinematicModeActive);
         }
 
         private static void LockCreativeCountdownPlayer()
@@ -1411,23 +1443,50 @@ namespace SubnauticaSpeedrunningMod.Runtime
             try
             {
                 Vector3 forward = CreativeCountdownForward.normalized;
-                float yaw = Mathf.Atan2(forward.x, forward.z) * Mathf.Rad2Deg;
+                Quaternion lookRotation = Quaternion.LookRotation(forward, Vector3.up);
+                Vector3 euler = lookRotation.eulerAngles;
+                float yaw = euler.y;
+                float pitch = NormalizeSignedAngle(euler.x);
                 Player.main.transform.rotation = Quaternion.Euler(0f, yaw, 0f);
 
                 MainCameraControl cameraControl = MainCameraControl.main;
                 if (cameraControl != null)
                 {
                     cameraControl.rotationX = yaw;
-                    cameraControl.rotationY = 0f;
+                    cameraControl.rotationY = pitch;
                     cameraControl.camRotationX = 0f;
                     cameraControl.camRotationY = 0f;
-                    cameraControl.transform.localEulerAngles = new Vector3(0f, yaw, 0f);
+                    if (cameraControl.cameraUPTransform != null)
+                    {
+                        cameraControl.cameraUPTransform.localEulerAngles = new Vector3(Mathf.Min(0f, 0f - pitch), 0f, 0f);
+                    }
+
+                    cameraControl.transform.localEulerAngles = new Vector3(Mathf.Max(0f, 0f - pitch), yaw, 0f);
+                    if (cameraControl.viewModel != null)
+                    {
+                        cameraControl.viewModel.localEulerAngles = new Vector3(0f, yaw, 0f);
+                    }
                 }
             }
             catch (Exception ex)
             {
                 ModLog.Warn("Failed to align Creative countdown view: " + ex.Message);
             }
+        }
+
+        private static float NormalizeSignedAngle(float angle)
+        {
+            while (angle > 180f)
+            {
+                angle -= 360f;
+            }
+
+            while (angle < -180f)
+            {
+                angle += 360f;
+            }
+
+            return angle;
         }
 
         private static void ResetLocalLaunchState()
@@ -1437,6 +1496,7 @@ namespace SubnauticaSpeedrunningMod.Runtime
             _localLaunchPending = false;
             _localCountdownStarted = false;
             _localSkipIssued = false;
+            _localIntroTriggerAuthorized = false;
             _localWaitingStartedAt = 0f;
             _localCountdownEndsAt = 0f;
             _pendingLaunchMode = string.Empty;
@@ -1455,7 +1515,11 @@ namespace SubnauticaSpeedrunningMod.Runtime
             {
                 MethodInfo sceneIntroStop = typeof(uGUI_SceneIntro).GetMethod("Stop", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic, null, new[] { typeof(bool) }, null);
                 MethodInfo stopPrefix = typeof(ModPrivateRaceRoomRuntimeHost).GetMethod(nameof(SceneIntroStopPrefix), BindingFlags.Static | BindingFlags.NonPublic);
-                if (sceneIntroStop == null || stopPrefix == null)
+                MethodInfo sceneIntroCallback = typeof(uGUI_SceneIntro).GetMethod("Callback", BindingFlags.Instance | BindingFlags.NonPublic);
+                MethodInfo callbackPrefix = typeof(ModPrivateRaceRoomRuntimeHost).GetMethod(nameof(SceneIntroCallbackPrefix), BindingFlags.Static | BindingFlags.NonPublic);
+                MethodInfo triggerIntroCinematic = typeof(EscapePod).GetMethod("TriggerIntroCinematic", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+                MethodInfo triggerPrefix = typeof(ModPrivateRaceRoomRuntimeHost).GetMethod(nameof(EscapePodTriggerIntroCinematicPrefix), BindingFlags.Static | BindingFlags.NonPublic);
+                if (sceneIntroStop == null || stopPrefix == null || sceneIntroCallback == null || callbackPrefix == null || triggerIntroCinematic == null || triggerPrefix == null)
                 {
                     ModLog.Warn("Private race intro skip guard could not be installed because required scene intro methods were unavailable.");
                     return;
@@ -1463,6 +1527,8 @@ namespace SubnauticaSpeedrunningMod.Runtime
 
                 _harmony = new Harmony(HarmonyId);
                 _harmony.Patch(sceneIntroStop, prefix: new HarmonyMethod(stopPrefix));
+                _harmony.Patch(sceneIntroCallback, prefix: new HarmonyMethod(callbackPrefix));
+                _harmony.Patch(triggerIntroCinematic, prefix: new HarmonyMethod(triggerPrefix));
                 _harmonyInstalled = true;
                 ModLog.Info("Private race intro skip guard installed.");
             }
@@ -1485,6 +1551,36 @@ namespace SubnauticaSpeedrunningMod.Runtime
             }
 
             return _localSkipIssued;
+        }
+
+        private static bool SceneIntroCallbackPrefix()
+        {
+            if (!ModClientSessionMode.IsPrivateRaceLocalSessionActive || !_localLaunchPending)
+            {
+                return true;
+            }
+
+            if (_localLaunchGameMode != GameMode.Survival)
+            {
+                return true;
+            }
+
+            return _localIntroTriggerAuthorized || _localSkipIssued;
+        }
+
+        private static bool EscapePodTriggerIntroCinematicPrefix()
+        {
+            if (!ModClientSessionMode.IsPrivateRaceLocalSessionActive || !_localLaunchPending)
+            {
+                return true;
+            }
+
+            if (_localLaunchGameMode != GameMode.Survival)
+            {
+                return true;
+            }
+
+            return _localIntroTriggerAuthorized || _localSkipIssued;
         }
 
         private enum PendingServerOperation

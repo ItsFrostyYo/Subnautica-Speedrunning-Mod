@@ -236,7 +236,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
             else if (!ModRankedSurvivalBatchSeedCatalog.TryChooseSeed(out seedDirectoryPath, out seedName))
             {
                 error =
-                    "Ranked survival batch seed files are missing. Expected folders like 'BS 1' or 'BS 2' inside '" +
+                    "Ranked survival batch seed files are missing. Expected folders like 'BS1' inside '" +
                     ModRankedSurvivalBatchSeedCatalog.GetInstalledRootPath() +
                     "'.";
                 return false;

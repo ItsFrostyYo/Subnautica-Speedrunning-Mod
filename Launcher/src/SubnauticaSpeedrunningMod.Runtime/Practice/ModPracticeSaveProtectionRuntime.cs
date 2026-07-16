@@ -112,17 +112,17 @@ namespace SubnauticaSpeedrunningMod.Runtime.Practice
                 return true;
             }
 
-            if (ShouldUseForfeitMenuState())
-            {
-                __instance.ChangeSubscreen("QuitConfirmation");
-                ApplyForfeitMenuState(__instance);
-                return false;
-            }
-
             if (ShouldUseReturnToRoomMenuState())
             {
                 __instance.ChangeSubscreen("QuitConfirmation");
                 ApplyReturnToRoomMenuState(__instance);
+                return false;
+            }
+
+            if (ShouldUseForfeitMenuState())
+            {
+                __instance.ChangeSubscreen("QuitConfirmation");
+                ApplyForfeitMenuState(__instance);
                 return false;
             }
 
@@ -161,13 +161,13 @@ namespace SubnauticaSpeedrunningMod.Runtime.Practice
 
                 if (IsRankedSessionActive())
                 {
-                    if (ShouldUseForfeitMenuState())
-                    {
-                        ApplyForfeitMenuState(menu);
-                    }
-                    else if (ShouldUseReturnToRoomMenuState())
+                    if (ShouldUseReturnToRoomMenuState())
                     {
                         ApplyReturnToRoomMenuState(menu);
+                    }
+                    else if (ShouldUseForfeitMenuState())
+                    {
+                        ApplyForfeitMenuState(menu);
                     }
                 }
             }

@@ -22,6 +22,11 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
         private static bool _verificationVisible;
         private static Color _verificationTitleColor = Color.white;
         private static Color _verificationDetailColor = Color.white;
+        private static string _topCenterTitleText = string.Empty;
+        private static string _topCenterDetailText = string.Empty;
+        private static bool _topCenterVisible;
+        private static Color _topCenterTitleColor = Color.white;
+        private static Color _topCenterDetailColor = Color.white;
         private static string _centerMessageText = string.Empty;
         private static bool _centerMessageVisible;
         private static Color _centerMessageColor = Color.white;
@@ -35,6 +40,8 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
         private static GUIStyle _runComparisonStyle;
         private static GUIStyle _verificationTitleStyle;
         private static GUIStyle _verificationDetailStyle;
+        private static GUIStyle _topCenterTitleStyle;
+        private static GUIStyle _topCenterDetailStyle;
         private static GUIStyle _centerMessageStyle;
 
         public static void EnsureInstalled()
@@ -93,6 +100,16 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
             _verificationVisible = visible;
         }
 
+        public static void SetTopCenterMessage(string title, string detail, Color titleColor, Color detailColor, bool visible)
+        {
+            EnsureInstalled();
+            _topCenterTitleText = title ?? string.Empty;
+            _topCenterDetailText = detail ?? string.Empty;
+            _topCenterTitleColor = titleColor;
+            _topCenterDetailColor = detailColor;
+            _topCenterVisible = visible;
+        }
+
         public static void SetCenterMessage(string text, Color color, bool visible)
         {
             EnsureInstalled();
@@ -129,6 +146,8 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
             _runComparisonStyle = null;
             _verificationTitleStyle = null;
             _verificationDetailStyle = null;
+            _topCenterTitleStyle = null;
+            _topCenterDetailStyle = null;
             _centerMessageStyle = null;
         }
 
@@ -154,6 +173,11 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
             if (_verificationVisible && !string.IsNullOrEmpty(_verificationTitleText))
             {
                 DrawVerification();
+            }
+
+            if (_topCenterVisible && !string.IsNullOrEmpty(_topCenterTitleText))
+            {
+                DrawTopCenterMessage();
             }
 
             if (_centerMessageVisible && !string.IsNullOrEmpty(_centerMessageText))
@@ -310,6 +334,27 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
             GUI.Label(new Rect(left, top, width, height + 6f), _centerMessageText, style);
         }
 
+        private static void DrawTopCenterMessage()
+        {
+            GUIStyle titleStyle = GetTopCenterTitleStyle();
+            GUIStyle detailStyle = GetTopCenterDetailStyle();
+
+            float width = 920f;
+            float left = (Screen.width - width) * 0.5f;
+            float top = 156f;
+            float titleHeight = titleStyle.CalcHeight(new GUIContent(_topCenterTitleText), width);
+            GUI.Label(new Rect(left, top, width, titleHeight + 4f), _topCenterTitleText, titleStyle);
+
+            if (string.IsNullOrEmpty(_topCenterDetailText))
+            {
+                return;
+            }
+
+            float detailTop = top + titleHeight + 2f;
+            float detailHeight = detailStyle.CalcHeight(new GUIContent(_topCenterDetailText), width);
+            GUI.Label(new Rect(left, detailTop, width, detailHeight + 4f), _topCenterDetailText, detailStyle);
+        }
+
         private static GUIStyle GetCenterMessageStyle()
         {
             if (_centerMessageStyle == null)
@@ -321,6 +366,32 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
 
             _centerMessageStyle.normal.textColor = _centerMessageColor;
             return _centerMessageStyle;
+        }
+
+        private static GUIStyle GetTopCenterTitleStyle()
+        {
+            if (_topCenterTitleStyle == null)
+            {
+                _topCenterTitleStyle = CreateBaseStyle(TextAnchor.UpperCenter);
+                _topCenterTitleStyle.wordWrap = true;
+                _topCenterTitleStyle.fontSize = 30;
+            }
+
+            _topCenterTitleStyle.normal.textColor = _topCenterTitleColor;
+            return _topCenterTitleStyle;
+        }
+
+        private static GUIStyle GetTopCenterDetailStyle()
+        {
+            if (_topCenterDetailStyle == null)
+            {
+                _topCenterDetailStyle = CreateBaseStyle(TextAnchor.UpperCenter);
+                _topCenterDetailStyle.wordWrap = true;
+                _topCenterDetailStyle.fontSize = 22;
+            }
+
+            _topCenterDetailStyle.normal.textColor = _topCenterDetailColor;
+            return _topCenterDetailStyle;
         }
 
         private static GUIStyle CreateBaseStyle(TextAnchor alignment)

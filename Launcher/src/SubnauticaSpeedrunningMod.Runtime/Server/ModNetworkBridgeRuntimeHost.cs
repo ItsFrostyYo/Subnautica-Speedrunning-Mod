@@ -52,7 +52,9 @@ namespace SubnauticaSpeedrunningMod.Runtime
                 string bridgeExecutablePath = Path.Combine(Path.Combine(modRoot, "Bridge"), "SubnauticaSpeedrunningMod.NetworkBridge.exe");
                 if (!File.Exists(bridgeExecutablePath))
                 {
-                    ModLog.Warn("Network bridge executable is missing at " + bridgeExecutablePath + ". Falling back to direct HTTPS networking.");
+                    ModLog.Warn(
+                        "Network bridge executable is missing at " + bridgeExecutablePath +
+                        ". Falling back to direct HTTPS networking. On some Windows installs that direct HTTPS path will fail, so this usually means the bridge package is incomplete.");
                     return _effectiveBaseUrl;
                 }
 
@@ -76,7 +78,9 @@ namespace SubnauticaSpeedrunningMod.Runtime
                 }
                 catch (Exception ex)
                 {
-                    ModLog.Warn("Failed to start local network bridge: " + ex.Message);
+                    ModLog.Warn(
+                        "Failed to start local network bridge: " + ex.Message +
+                        ". Falling back to direct HTTPS networking.");
                     return _effectiveBaseUrl;
                 }
 
@@ -87,7 +91,9 @@ namespace SubnauticaSpeedrunningMod.Runtime
                 }
                 else
                 {
-                    ModLog.Warn("Local network bridge did not become ready in time. Falling back to direct HTTPS networking.");
+                    ModLog.Warn(
+                        "Local network bridge did not become ready in time. Falling back to direct HTTPS networking. " +
+                        "This usually means the bridge was blocked, crashed, or is still extracting on first launch.");
                 }
 
                 return _effectiveBaseUrl;
@@ -96,7 +102,7 @@ namespace SubnauticaSpeedrunningMod.Runtime
 
         private static bool WaitForBridge(string expectedRemoteBaseUrl)
         {
-            DateTime deadline = DateTime.UtcNow.AddSeconds(10);
+            DateTime deadline = DateTime.UtcNow.AddSeconds(20);
             while (DateTime.UtcNow < deadline)
             {
                 if (IsBridgeHealthy(expectedRemoteBaseUrl))

@@ -34,12 +34,13 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
         private const string PrivateRaceRoomPlaceholderName = "ModPrivateRaceRoomPlaceholder";
         private const string PrivateRaceRoomHostTextName = "ModPrivateRaceRoomHost";
         private const string PrivateRaceRoomJoinerTextName = "ModPrivateRaceRoomJoiner";
+        private const string PrivateRaceRoomCopyButtonName = "ModPrivateRaceRoomCopyButton";
         private const string PrivateRaceRoomModeRowName = "ModPrivateRaceRoomMode";
         private const string PrivateRaceRoomStartButtonName = "ModPrivateRaceRoomStart";
         private const string PrivateRaceRoomChoiceValueName = "ModPrivateRaceRoomChoiceValue";
-        private const string UpdatePanelTitleText = "Update Beta-0.9.0";
+        private const string UpdatePanelTitleText = "Update Beta-0.9.1";
         // Edit this message each release to show the newest client changes on the main menu.
-        private const string UpdatePanelBodyText = "This Update Improves Private Race Room Hosting, Joining, Comparison Syncing, Race Over Handling and the Multiplayer Test Client for Server Testing.";
+        private const string UpdatePanelBodyText = "Added Hosting and Joining Races for 1v1ing Friends, Seeds will be Added in Future Updates";
         private const string UpdatePanelBodyObjectName = "ModUpdatePanelBody";
         private const int WatermarkFontSize = 18;
         private const int QueueButtonFontSize = 34;
@@ -994,14 +995,15 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
 
             EnsurePrivateRacePlayerText(roomGroup, root.transform, PrivateRaceRoomHostTextName, 0, "Host: " + ModPrivateRaceRoomRuntimeHost.GetRoomHostDisplayText());
             EnsurePrivateRacePlayerText(roomGroup, root.transform, "ModPrivateRaceRoomCode", 1, "Room Code: " + ModPrivateRaceRoomRuntimeHost.GetRoomCodeText());
+            EnsurePrivateRaceCopyButton(roomGroup, root.transform, 1);
             EnsurePrivateRacePlayerText(
                 roomGroup,
                 root.transform,
                 PrivateRaceRoomJoinerTextName,
                 2,
                 ModPrivateRaceRoomRuntimeHost.IsLocalHost
-                    ? ("Joiner: " + ModPrivateRaceRoomRuntimeHost.GetJoinerDisplayText())
-                    : ("You: " + ModPrivateRaceRoomRuntimeHost.GetLocalPlayerDisplayText()));
+                    ? ("Player: " + ModPrivateRaceRoomRuntimeHost.GetJoinerDisplayText())
+                    : ("Player: " + ModPrivateRaceRoomRuntimeHost.GetLocalPlayerDisplayText()));
             EnsurePrivateRacePlayerText(roomGroup, root.transform, "ModPrivateRaceRoomStatus", 3, ModPrivateRaceRoomRuntimeHost.GetStatusMessage());
 
             if (!ModPrivateRaceRoomRuntimeHost.IsConnecting &&
@@ -1808,7 +1810,9 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
             rectTransform.anchorMax = new Vector2(1f, 1f);
             rectTransform.pivot = new Vector2(0f, 1f);
             rectTransform.anchoredPosition = new Vector2(10f, -(26f + (54f * rowIndex)));
-            rectTransform.sizeDelta = new Vector2(-20f, 42f);
+            rectTransform.sizeDelta = string.Equals(objectName, "ModPrivateRaceRoomCode", StringComparison.Ordinal)
+                ? new Vector2(-160f, 42f)
+                : new Vector2(-20f, 42f);
             rectTransform.localScale = Vector3.one;
 
             text.text = value;
@@ -1819,6 +1823,76 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
             text.color = Color.white;
             text.raycastTarget = false;
             text.gameObject.SetActive(true);
+        }
+
+        private static void EnsurePrivateRaceCopyButton(GameObject panelGroup, Transform rootTransform, int rowIndex)
+        {
+            if (panelGroup == null || rootTransform == null)
+            {
+                return;
+            }
+
+            Transform existingTransform = rootTransform.Find(PrivateRaceRoomCopyButtonName);
+            GameObject buttonObject = existingTransform != null ? existingTransform.gameObject : null;
+            if (buttonObject == null)
+            {
+                Button templateButton = FindButtonByText(panelGroup, "Leave Room");
+                if (templateButton == null)
+                {
+                    templateButton = FindButtonByText(panelGroup, "Back");
+                }
+
+                if (templateButton == null)
+                {
+                    return;
+                }
+
+                buttonObject = UnityEngine.Object.Instantiate(templateButton.gameObject, rootTransform, false);
+                buttonObject.name = PrivateRaceRoomCopyButtonName;
+            }
+
+            RectTransform rectTransform = buttonObject.transform as RectTransform;
+            if (rectTransform != null)
+            {
+                Text roomCodeText = null;
+                Transform roomCodeTransform = rootTransform.Find("ModPrivateRaceRoomCode");
+                if (roomCodeTransform != null)
+                {
+                    roomCodeText = roomCodeTransform.GetComponent<Text>();
+                }
+
+                float preferredWidth = roomCodeText != null ? roomCodeText.preferredWidth : 220f;
+                float buttonLeft = Mathf.Clamp(18f + preferredWidth + 10f, 220f, 460f);
+                rectTransform.anchorMin = new Vector2(0f, 1f);
+                rectTransform.anchorMax = new Vector2(0f, 1f);
+                rectTransform.pivot = new Vector2(0f, 1f);
+                rectTransform.anchoredPosition = new Vector2(buttonLeft, -(27f + (54f * rowIndex)));
+                rectTransform.sizeDelta = new Vector2(84f, 34f);
+                rectTransform.localScale = Vector3.one;
+            }
+
+            Button button = buttonObject.GetComponentInChildren<Button>(true);
+            if (button == null)
+            {
+                buttonObject.SetActive(false);
+                return;
+            }
+
+            string roomCode = ModPrivateRaceRoomRuntimeHost.GetRoomCodeText();
+            bool canCopy = !string.IsNullOrEmpty(roomCode) &&
+                !string.Equals(roomCode, "Unavailable", StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(roomCode, "Generating...", StringComparison.OrdinalIgnoreCase);
+
+            RemoveLocalizationComponents(button.gameObject);
+            SetButtonLabel(button.gameObject, "Copy");
+            SetButtonLabelFontSize(button.gameObject, 18);
+            button.onClick = new Button.ButtonClickedEvent();
+            button.onClick.AddListener(new UnityAction(delegate
+            {
+                GUIUtility.systemCopyBuffer = ModPrivateRaceRoomRuntimeHost.GetRoomCodeText();
+            }));
+            button.interactable = canCopy;
+            buttonObject.SetActive(true);
         }
 
         private static GameObject EnsurePrivateRaceChoiceRow(Transform rootTransform, GameObject choiceOptionPrefab, string objectName, int rowIndex)
@@ -1914,7 +1988,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
             rectTransform.anchorMax = new Vector2(0f, 0.5f);
             rectTransform.pivot = new Vector2(0f, 0.5f);
             rectTransform.anchoredPosition = new Vector2(10f, 0f);
-            rectTransform.sizeDelta = new Vector2(260f, 48f);
+            rectTransform.sizeDelta = new Vector2(300f, 48f);
             rectTransform.localScale = Vector3.one;
 
             labelText.text = "Race Gamemode";
@@ -1948,8 +2022,8 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
             rectTransform.anchorMin = new Vector2(0f, 0.5f);
             rectTransform.anchorMax = new Vector2(0f, 0.5f);
             rectTransform.pivot = new Vector2(0.5f, 0.5f);
-            rectTransform.anchoredPosition = new Vector2(500f, 0f);
-            rectTransform.sizeDelta = new Vector2(180f, 48f);
+            rectTransform.anchoredPosition = new Vector2(562f, 0f);
+            rectTransform.sizeDelta = new Vector2(170f, 48f);
             rectTransform.localScale = Vector3.one;
 
             valueText.text = ModPrivateRaceRoomRuntimeHost.SelectedMode;
@@ -1995,8 +2069,8 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
                 bool isPrevious = string.Equals(objectName, "Previous", StringComparison.Ordinal);
                 rectTransform.anchorMin = new Vector2(0f, 0.5f);
                 rectTransform.anchorMax = new Vector2(0f, 0.5f);
-                rectTransform.pivot = new Vector2(0f, 0.5f);
-                rectTransform.anchoredPosition = new Vector2(isPrevious ? 356f : 604f, 0f);
+                rectTransform.pivot = new Vector2(0.5f, 0.5f);
+                rectTransform.anchoredPosition = new Vector2(isPrevious ? 436f : 688f, 0f);
                 rectTransform.sizeDelta = new Vector2(64f, 64f);
                 rectTransform.localScale = Vector3.one;
             }
