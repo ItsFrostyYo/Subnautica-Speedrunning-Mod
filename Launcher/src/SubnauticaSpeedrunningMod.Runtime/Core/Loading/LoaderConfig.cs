@@ -16,8 +16,8 @@ namespace SubnauticaSpeedrunningMod.Runtime
 
         public LoaderConfig()
         {
-            EnableNetworking = false;
-            ApiBaseUrl = "https://example.invalid/";
+            EnableNetworking = true;
+            ApiBaseUrl = "https://subnautica-speedrunning-server.onrender.com/";
             ModEnvironmentName = "production";
             EnableCrashUpload = false;
             ModuleFolder = "Modules";

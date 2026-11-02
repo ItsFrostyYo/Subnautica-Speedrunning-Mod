@@ -1,5 +1,5 @@
 param(
-    [string]$VersionLabel = "Beta-0.10.1",
+    [string]$VersionLabel = "Beta-0.11.1",
     [string]$GameInstallRoot = "C:\Program Files (x86)\Steam\steamapps\common\SubnauticaRanked"
 )
 
@@ -26,7 +26,7 @@ $bridgePublishRoot = Join-Path $buildTempRoot "bridge"
 
 $practiceSourceRoot = Join-Path $srcRoot "SubnauticaSpeedrunningMod.Runtime\PracticeSaveFiles"
 $languageSourceRoot = Join-Path $srcRoot "SubnauticaSpeedrunningMod.Runtime\LanguageFiles"
-$seedSourceRoot = Join-Path $srcRoot "SubnauticaSpeedrunningMod.Runtime\Seeds\RankedSurvival"
+$ruleset7SeedPoolPath = Join-Path $srcRoot "SubnauticaSpeedrunningMod.Runtime\Seeds\Ruleset7\1000SurvivalGlitchedAny%.csv"
 
 function Ensure-Directory {
     param([string]$Path)
@@ -71,16 +71,69 @@ function Write-LatestManifest {
     param(
         [string]$ManifestPath,
         [string]$Version,
-        [string]$ZipFileName
+        [string]$ZipFileName,
+        [string]$Sha256
     )
 
     $manifest = @{
         version = $Version
         zipFileName = $ZipFileName
         zipUrl = "https://github.com/ItsFrostyYo/Subnautica-Speedrunning-Mod/releases/download/$Version/$ZipFileName"
+        sha256 = $Sha256.ToUpperInvariant()
     }
 
     $manifest | ConvertTo-Json | Set-Content -LiteralPath $ManifestPath -Encoding UTF8
+}
+
+function Test-ReleasePackage {
+    param(
+        [string]$PackagePath,
+        [string]$ExpectedVersion,
+        [string]$ExpectedSeedPoolPath
+    )
+
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    $archive = [System.IO.Compression.ZipFile]::OpenRead($PackagePath)
+    try {
+        $entries = @($archive.Entries | ForEach-Object { $_.FullName.Replace('\', '/') })
+        $requiredEntries = @(
+            ".doorstop_version",
+            "doorstop_config.ini",
+            "Launch Mod.cmd",
+            "winhttp.dll",
+            "SubnauticaSpeedrunningMod/Launch Mod.exe",
+            "SubnauticaSpeedrunningMod/Bootstrap/Mono.Cecil.dll",
+            "SubnauticaSpeedrunningMod/Bootstrap/SubnauticaSpeedrunningMod.Bootstrap.dll",
+            "SubnauticaSpeedrunningMod/Runtime/SubnauticaSpeedrunningMod.Runtime.dll",
+            "SubnauticaSpeedrunningMod/Updater/Mod Updater.exe",
+            "SubnauticaSpeedrunningMod/Seeds/1000SurvivalGlitchedAny%.csv"
+        )
+
+        foreach ($requiredEntry in $requiredEntries) {
+            if ($entries -notcontains $requiredEntry) {
+                throw "Release package is missing required entry: $requiredEntry"
+            }
+        }
+
+        $unexpectedBuildFiles = @($entries | Where-Object { $_ -match '(?i)\.(pdb|cs)$' })
+        if ($unexpectedBuildFiles.Count -gt 0) {
+            throw "Release package contains source/debug files: $($unexpectedBuildFiles -join ', ')"
+        }
+    }
+    finally {
+        $archive.Dispose()
+    }
+
+    $launcherPath = Join-Path $releaseRoot "SubnauticaSpeedrunningMod\Launch Mod.exe"
+    $launcherVersion = [System.Diagnostics.FileVersionInfo]::GetVersionInfo($launcherPath).ProductVersion
+    if (-not [string]::Equals($launcherVersion, $ExpectedVersion, [System.StringComparison]::OrdinalIgnoreCase)) {
+        throw "Release launcher version '$launcherVersion' does not match '$ExpectedVersion'."
+    }
+
+    $seedCount = @(Get-Content -LiteralPath $ExpectedSeedPoolPath | Where-Object { $_ -match '^\s*[+-]?\d+\s*$' }).Count
+    if ($seedCount -ne 1000) {
+        throw "Ruleset 7 release seed pool contains $seedCount numeric seeds instead of 1000."
+    }
 }
 
 Write-Host "Building Subnautica Speedrunning Mod release $VersionLabel..."
@@ -106,10 +159,10 @@ Ensure-Directory -Path (Join-Path $installModRoot "Updater")
 Ensure-Directory -Path (Join-Path $installModRoot "LanguageFiles")
 Ensure-Directory -Path (Join-Path $installModRoot "SaveFiles")
 Ensure-Directory -Path (Join-Path $installModRoot "Seeds")
-Ensure-Directory -Path (Join-Path $installModRoot "Seeds\RankedSurvival")
 
 Copy-DirectoryContents -Source $launcherPublishRoot -Destination $installModRoot
 Copy-Item -LiteralPath (Join-Path $bootstrapOutputRoot "SubnauticaSpeedrunningMod.Bootstrap.dll") -Destination (Join-Path $installModRoot "Bootstrap\SubnauticaSpeedrunningMod.Bootstrap.dll") -Force
+Copy-Item -LiteralPath (Join-Path $bootstrapOutputRoot "Mono.Cecil.dll") -Destination (Join-Path $installModRoot "Bootstrap\Mono.Cecil.dll") -Force
 Copy-Item -LiteralPath (Join-Path $runtimeOutputRoot "SubnauticaSpeedrunningMod.Runtime.dll") -Destination (Join-Path $installModRoot "Runtime\SubnauticaSpeedrunningMod.Runtime.dll") -Force
 Copy-DirectoryContents -Source $updaterPublishRoot -Destination (Join-Path $installModRoot "Updater")
 Copy-DirectoryContents -Source $bridgePublishRoot -Destination (Join-Path $installModRoot "Bridge")
@@ -120,12 +173,12 @@ Copy-DirectoryContents -Source $languageSourceRoot -Destination (Join-Path $inst
 Reset-Directory -Path (Join-Path $installModRoot "SaveFiles")
 Copy-DirectoryContents -Source $practiceSourceRoot -Destination (Join-Path $installModRoot "SaveFiles")
 
-$installRankedSurvivalRoot = Join-Path $installModRoot "Seeds\RankedSurvival"
-Get-ChildItem -LiteralPath $installRankedSurvivalRoot -Directory -ErrorAction SilentlyContinue |
-    Where-Object { $_.Name -ne "BS1" } |
-    ForEach-Object { Remove-Item -LiteralPath $_.FullName -Recurse -Force }
-Reset-Directory -Path (Join-Path $installRankedSurvivalRoot "BS1")
-Copy-DirectoryContents -Source (Join-Path $seedSourceRoot "BS1") -Destination (Join-Path $installRankedSurvivalRoot "BS1")
+if (Test-Path -LiteralPath (Join-Path $installModRoot "Seeds\RankedSurvival")) {
+    Remove-Item -LiteralPath (Join-Path $installModRoot "Seeds\RankedSurvival") -Recurse -Force
+}
+Get-ChildItem -LiteralPath (Join-Path $installModRoot "Seeds") -File -Filter "*SurvivalGlitchedAny%.csv" -ErrorAction SilentlyContinue |
+    Remove-Item -Force
+Copy-Item -LiteralPath $ruleset7SeedPoolPath -Destination (Join-Path $installModRoot "Seeds\1000SurvivalGlitchedAny%.csv") -Force
 
 Remove-FilesByPattern -Root (Join-Path $installModRoot "Bridge") -Patterns @("*.pdb")
 
@@ -143,6 +196,11 @@ Reset-Directory -Path $releaseModRoot
 
 Copy-DirectoryContents -Source $installModRoot -Destination $releaseModRoot
 
+$translationDictionaryPath = Join-Path $releaseModRoot "LanguageFiles\Translation Dictionary.txt"
+if (Test-Path -LiteralPath $translationDictionaryPath) {
+    Remove-Item -LiteralPath $translationDictionaryPath -Force
+}
+
 Reset-Directory -Path (Join-Path $releaseModRoot "Logs")
 Ensure-Directory -Path (Join-Path $releaseModRoot "Logs\Bootstrap")
 Ensure-Directory -Path (Join-Path $releaseModRoot "Logs\CrashReports")
@@ -150,14 +208,10 @@ Ensure-Directory -Path (Join-Path $releaseModRoot "Logs\Launcher")
 Ensure-Directory -Path (Join-Path $releaseModRoot "Logs\Runtime")
 
 Reset-Directory -Path (Join-Path $releaseModRoot "Client")
+Reset-Directory -Path (Join-Path $releaseModRoot "Config")
 if (Test-Path -LiteralPath (Join-Path $releaseModRoot "Seeds\State")) {
     Remove-Item -LiteralPath (Join-Path $releaseModRoot "Seeds\State") -Recurse -Force
 }
-
-$releaseRankedSurvivalRoot = Join-Path $releaseModRoot "Seeds\RankedSurvival"
-Get-ChildItem -LiteralPath $releaseRankedSurvivalRoot -Directory -ErrorAction SilentlyContinue |
-    Where-Object { $_.Name -ne "BS1" } |
-    ForEach-Object { Remove-Item -LiteralPath $_.FullName -Recurse -Force }
 
 Remove-FilesByPattern -Root $releaseModRoot -Patterns @("*.pdb", "*.cs")
 
@@ -172,7 +226,9 @@ Add-Type -AssemblyName System.IO.Compression.FileSystem
     $zipPath,
     [System.IO.Compression.CompressionLevel]::Optimal,
     $false)
-Write-LatestManifest -ManifestPath $latestJsonPath -Version $VersionLabel -ZipFileName ([System.IO.Path]::GetFileName($zipPath))
+Test-ReleasePackage -PackagePath $zipPath -ExpectedVersion $VersionLabel -ExpectedSeedPoolPath $ruleset7SeedPoolPath
+$zipSha256 = (Get-FileHash -LiteralPath $zipPath -Algorithm SHA256).Hash
+Write-LatestManifest -ManifestPath $latestJsonPath -Version $VersionLabel -ZipFileName ([System.IO.Path]::GetFileName($zipPath)) -Sha256 $zipSha256
 
 Write-Host "Release ready:"
 Write-Host "  Folder: $releaseRoot"

@@ -76,6 +76,11 @@ internal static class LauncherUpdateService
         startInfo.ArgumentList.Add(update.AssetUrl);
         startInfo.ArgumentList.Add("--version");
         startInfo.ArgumentList.Add(update.VersionLabel);
+        if (!string.IsNullOrWhiteSpace(update.Sha256))
+        {
+            startInfo.ArgumentList.Add("--sha256");
+            startInfo.ArgumentList.Add(update.Sha256);
+        }
         startInfo.ArgumentList.Add("--install-root");
         startInfo.ArgumentList.Add(layout.GameRoot);
         startInfo.ArgumentList.Add("--launcher-relative-path");
@@ -124,7 +129,8 @@ internal static class LauncherUpdateService
                 assetUrl = ModClientRelease.BuildReleaseAssetUrl(versionLabel, zipFileName);
             }
 
-            update = new AvailableUpdate(versionLabel, zipFileName, assetUrl);
+            string sha256 = ReadString(root, "sha256");
+            update = new AvailableUpdate(versionLabel, zipFileName, assetUrl, sha256);
             return true;
         }
         catch (Exception ex)
@@ -233,16 +239,18 @@ internal static class LauncherUpdateService
 
     private sealed class AvailableUpdate
     {
-        public AvailableUpdate(string versionLabel, string assetName, string assetUrl)
+        public AvailableUpdate(string versionLabel, string assetName, string assetUrl, string sha256)
         {
             VersionLabel = versionLabel;
             AssetName = assetName;
             AssetUrl = assetUrl;
+            Sha256 = sha256;
         }
 
         public string VersionLabel { get; private set; }
         public string AssetName { get; private set; }
         public string AssetUrl { get; private set; }
+        public string Sha256 { get; private set; }
     }
 
     private struct ParsedReleaseVersion

@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.IO.Compression;
 using System.Net.Http;
+using System.Security.Cryptography;
 using System.Windows.Forms;
 using SubnauticaSpeedrunningMod.Shared;
 
@@ -109,6 +110,7 @@ internal sealed class UpdateProgressWindow : Form
         try
         {
             await DownloadUpdateAsync(zipPath);
+            VerifyDownloadedPackage(zipPath);
             SetStatus("Extracting update package...", 74);
             ZipFile.ExtractToDirectory(zipPath, extractRoot);
             ApplyExtractedFiles(extractRoot, _options.InstallRoot);
@@ -117,6 +119,23 @@ internal sealed class UpdateProgressWindow : Form
         finally
         {
             TryDeleteDirectory(workingRoot);
+        }
+    }
+
+    private void VerifyDownloadedPackage(string zipPath)
+    {
+        if (string.IsNullOrWhiteSpace(_options.ExpectedSha256))
+        {
+            return;
+        }
+
+        SetStatus("Verifying update package...", 72);
+        using FileStream stream = File.OpenRead(zipPath);
+        using SHA256 sha256 = SHA256.Create();
+        string actual = Convert.ToHexString(sha256.ComputeHash(stream));
+        if (!string.Equals(actual, _options.ExpectedSha256.Trim(), StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidDataException("The downloaded update package failed SHA-256 verification.");
         }
     }
 

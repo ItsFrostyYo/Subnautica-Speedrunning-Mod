@@ -5,6 +5,7 @@ internal sealed class UpdateArguments
     public int WaitForPid { get; private set; }
     public string AssetUrl { get; private set; } = "";
     public string VersionLabel { get; private set; } = "";
+    public string ExpectedSha256 { get; private set; } = "";
     public string InstallRoot { get; private set; } = "";
     public string LauncherRelativePath { get; private set; } = "";
     public string RelaunchArgument { get; private set; } = "";
@@ -28,6 +29,10 @@ internal sealed class UpdateArguments
                     break;
                 case "--version":
                     options.VersionLabel = value;
+                    i++;
+                    break;
+                case "--sha256":
+                    options.ExpectedSha256 = value;
                     i++;
                     break;
                 case "--install-root":

@@ -1,5 +1,6 @@
 using System;
 using UnityEngine;
+using SubnauticaSpeedrunningMod.Runtime.Seeds.Ruleset7;
 
 namespace SubnauticaSpeedrunningMod.Runtime.Seeds
 {
@@ -33,12 +34,6 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
                 return BetterRngFixedProfile;
             }
 
-            ModSeedRuntimeProfile rankedSurvivalBatchProfile = ModRankedSurvivalBatchSeedRuntime.GetActiveProfile();
-            if (rankedSurvivalBatchProfile != null)
-            {
-                return rankedSurvivalBatchProfile;
-            }
-
             return ModSeedStore.GetActiveProfile();
         }
 
@@ -54,7 +49,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
 
         public static bool IsRankedSingleplayerSeedActive()
         {
-            if (ModRankedSurvivalBatchSeedRuntime.IsCurrentSessionActive())
+            if (SeedRuntime.Active && ModClientSessionMode.IsRankedSingleplayerPracticeSelected)
             {
                 return true;
             }
@@ -66,7 +61,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
 
         public static bool IsRankedMultiplayerSeedActive()
         {
-            if (ModRankedSurvivalBatchSeedRuntime.IsCurrentSessionActive() && ModClientSessionMode.IsRankedMultiplayerSelected)
+            if (SeedRuntime.Active && ModClientSessionMode.IsRankedMultiplayerSelected)
             {
                 return true;
             }
@@ -149,7 +144,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
             _startupHooksInstallAttempted = true;
             _betterRngHookInstalled = ModBetterRngRuntimeHost.EnsureInstalled();
             bool forceSecondGoldInstalled = ModForceSecondGoldRuntime.EnsureInstalled();
-            bool rankedSurvivalBatchInstalled = ModRankedSurvivalBatchSeedRuntime.EnsureInstalled();
+            bool ruleset7Installed = Ruleset7RaceSession.EnsureInstalled();
             _consoleCommandHookInstalled = ModConsoleCommandsRuntime.EnsureInstalled();
             _fishSchoolHookInstalled = ModFishSchoolHookRuntime.EnsureInstalled();
             _stalkerToothHookInstalled = ModStalkerToothHookRuntime.EnsureInstalled();
@@ -158,8 +153,8 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
                 "BetterRngHooksInstalled=" +
                 _betterRngHookInstalled +
                 ", " +
-                "RankedSurvivalBatchInstalled=" +
-                rankedSurvivalBatchInstalled +
+                "Ruleset7RaceInstalled=" +
+                ruleset7Installed +
                 ", " +
                 "ForceSecondGoldInstalled=" +
                 forceSecondGoldInstalled +
@@ -175,6 +170,12 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
 
         public static void UpdateSharedRuleState(string saveSlot, bool inMainMenu, bool continueMode)
         {
+            if (SeedRuntime.Active)
+            {
+                ModForceSecondGoldRuntime.Reset();
+                return;
+            }
+
             string normalizedSaveSlot = saveSlot ?? string.Empty;
             if (inMainMenu ||
                 !normalizedSaveSlot.StartsWith("slot", StringComparison.OrdinalIgnoreCase) ||
@@ -208,14 +209,6 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
             if (ShouldApplyBetterRngRules())
             {
                 return false;
-            }
-
-            Vector3 rankedBatchStartPoint;
-            if (mode == GameMode.Survival &&
-                ModRankedSurvivalBatchSeedRuntime.TryGetFreshRunStartPoint(out rankedBatchStartPoint, out description))
-            {
-                startPoint = new Vector3(rankedBatchStartPoint.x, 0f, rankedBatchStartPoint.z);
-                return true;
             }
 
             string saveSlot = Utils.GetSavegameDir() ?? string.Empty;
@@ -283,9 +276,9 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
                 return false;
             }
 
-            if (ModRankedSurvivalBatchSeedRuntime.IsCurrentSessionActive())
+            if (SeedRuntime.Active)
             {
-                return true;
+                return false;
             }
 
             if (HasActiveSeedAssignment())
@@ -325,6 +318,11 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
             }
 
             if (!ModClientSessionMode.IsRankedMultiplayerSelected)
+            {
+                return false;
+            }
+
+            if (SeedRuntime.Active)
             {
                 return false;
             }

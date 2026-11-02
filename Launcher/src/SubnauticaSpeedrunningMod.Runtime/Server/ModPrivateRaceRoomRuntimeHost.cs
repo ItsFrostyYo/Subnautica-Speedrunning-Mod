@@ -5,6 +5,7 @@ using System.Reflection;
 using System.Threading;
 using HarmonyLib;
 using SubnauticaSpeedrunningMod.Runtime.Seeds;
+using SubnauticaSpeedrunningMod.Runtime.Seeds.Ruleset7;
 using SubnauticaSpeedrunningMod.Runtime.Ui;
 using UWE;
 using UnityEngine;
@@ -211,6 +212,7 @@ namespace SubnauticaSpeedrunningMod.Runtime
                 !_requestInFlight &&
                 _currentState != null &&
                 !string.IsNullOrEmpty(_currentState.roomCode) &&
+                !IsGameplayRacePollingActive() &&
                 Time.unscaledTime >= _nextPollAt)
             {
                 BeginBackgroundRequest(PendingServerOperation.PollRoom, _currentState.roomCode, null);
@@ -534,9 +536,19 @@ namespace SubnauticaSpeedrunningMod.Runtime
                 ? GameMode.Creative
                 : GameMode.Survival;
 
-            if (!PrepareSelectedSeed(gameMode, out _lastPreparedSeedId, out _lastPreparedSeedValue))
+            if (gameMode == GameMode.Creative &&
+                !PrepareSelectedSeed(gameMode, out _lastPreparedSeedId, out _lastPreparedSeedValue))
             {
                 return;
+            }
+
+            if (gameMode == GameMode.Survival)
+            {
+                _lastPreparedSeedId = string.Empty;
+                _lastPreparedSeedValue = string.Empty;
+                _lastPreparedSpawnX = 0f;
+                _lastPreparedSpawnZ = 0f;
+                _lastPreparedSpawnDescription = "Ruleset 7 seed and lifepod spawn are server-selected.";
             }
 
             _state = PrivateRaceRoomState.Launching;
@@ -547,7 +559,7 @@ namespace SubnauticaSpeedrunningMod.Runtime
                 playerId = ResolveLocalPlayerId(),
                 mode = mode,
                 seedMultiplier = 1d,
-                spawnProfile = gameMode == GameMode.Creative ? "creative-range" : "clip-c",
+                spawnProfile = gameMode == GameMode.Creative ? "creative-range" : "ruleset-7-seeded",
                 seedId = _lastPreparedSeedId ?? string.Empty,
                 seedValue = _lastPreparedSeedValue ?? string.Empty,
                 spawnX = _lastPreparedSpawnX,
@@ -589,35 +601,7 @@ namespace SubnauticaSpeedrunningMod.Runtime
                 return true;
             }
 
-            string seedDirectoryPath;
-            string seedName;
-            if (!ModRankedSurvivalBatchSeedCatalog.TryChooseSeed(out seedDirectoryPath, out seedName))
-            {
-                ShowStartError(
-                    "Ranked survival batch seed files are missing. Add folders like 'BS1' inside '" +
-                    ModRankedSurvivalBatchSeedCatalog.GetInstalledRootPath() +
-                    "'.");
-                return false;
-            }
-
-            float spawnX;
-            float spawnZ;
-            string spawnDescription;
-            ModRankedSurvivalBatchSeedCatalog.ResolveClipCSpawn(out spawnX, out spawnZ, out spawnDescription, seedName);
-            ModRankedSurvivalBatchSeedRuntime.PreparePendingExternalSelection(seedDirectoryPath, seedName, spawnX, spawnZ, spawnDescription);
-            seedId = string.IsNullOrEmpty(seedName) ? "BS?" : seedName;
-            seedValue = seedId +
-                "|clipc|" +
-                spawnX.ToString("0.###", CultureInfo.InvariantCulture) +
-                "|" +
-                spawnZ.ToString("0.###", CultureInfo.InvariantCulture) +
-                "|" +
-                DateTime.UtcNow.ToString("yyyyMMddHHmmssfff", CultureInfo.InvariantCulture);
-            _lastPreparedSpawnX = spawnX;
-            _lastPreparedSpawnZ = spawnZ;
-            _lastPreparedSpawnDescription = spawnDescription;
-            ModLog.Info("Prepared local Survival private race seed '" + seedId + "' with spawn " + spawnDescription + ".");
-            return true;
+            return false;
         }
 
         private static void ShowStartError(string message)
@@ -667,7 +651,7 @@ namespace SubnauticaSpeedrunningMod.Runtime
             }
 
             _currentState = state;
-            _nextPollAt = Time.unscaledTime + 0.12f;
+            _nextPollAt = Time.unscaledTime + GetNextRoomPollDelaySeconds();
 
             if (_state == PrivateRaceRoomState.Connecting)
             {
@@ -677,17 +661,6 @@ namespace SubnauticaSpeedrunningMod.Runtime
             else if (_state == PrivateRaceRoomState.Error && _currentState != null)
             {
                 _state = PrivateRaceRoomState.Connected;
-            }
-
-            if (completedOperation == PendingServerOperation.PollRoom)
-            {
-                string joinerName = GetJoinerPlayer() == null ? "none" : (GetJoinerPlayer().displayName ?? "unknown");
-                int playerCount = _currentState.players == null ? 0 : _currentState.players.Length;
-                ModLog.Info(
-                    "Private race room poll updated. Room code=" + GetRoomCodeText() +
-                    ", players=" + playerCount +
-                    ", joiner=" + joinerName +
-                    ", status=" + (_currentState.status ?? string.Empty) + ".");
             }
 
             if (completedOperation == PendingServerOperation.StartRoom)
@@ -853,8 +826,34 @@ namespace SubnauticaSpeedrunningMod.Runtime
         {
             _state = PrivateRaceRoomState.Error;
             _pendingError = string.IsNullOrEmpty(message) ? "Private room connection failed." : message;
-            _nextPollAt = Time.unscaledTime + 0.5f;
+            _nextPollAt = Time.unscaledTime + 2f;
             ModLog.Warn(_pendingError);
+        }
+
+        private static bool IsGameplayRacePollingActive()
+        {
+            return ModClientSessionMode.IsRankedMultiplayerSelected && (_localLaunchPending || Player.main != null);
+        }
+
+        private static float GetNextRoomPollDelaySeconds()
+        {
+            if (_currentState == null || string.IsNullOrEmpty(_currentState.status))
+            {
+                return 0.5f;
+            }
+
+            if (string.Equals(_currentState.status, "WaitingForReady", StringComparison.OrdinalIgnoreCase))
+            {
+                return 0.25f;
+            }
+
+            if (string.Equals(_currentState.status, "WaitingForHostStart", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(_currentState.status, "InProgress", StringComparison.OrdinalIgnoreCase))
+            {
+                return 0.5f;
+            }
+
+            return 1f;
         }
 
         private static bool ShouldBeginRemoteRaceLaunch()
@@ -904,7 +903,7 @@ namespace SubnauticaSpeedrunningMod.Runtime
             string seedValue = string.IsNullOrEmpty(_currentState.seedValue) ? _lastPreparedSeedValue : _currentState.seedValue.Trim();
             if (string.IsNullOrEmpty(seedId))
             {
-                seedId = gameMode == GameMode.Creative ? "PrivateRace-Creative" : "BS1";
+                seedId = gameMode == GameMode.Creative ? "PrivateRace-Creative" : "Ruleset-7";
             }
 
             if (string.IsNullOrEmpty(seedValue))
@@ -927,56 +926,18 @@ namespace SubnauticaSpeedrunningMod.Runtime
                 return true;
             }
 
-            string seedDirectoryPath;
-            if (!ModRankedSurvivalBatchSeedCatalog.TryGetSeedDirectoryByName(seedId, out seedDirectoryPath))
+            if (!Ruleset7RaceSession.Prepare(seedValue))
             {
-                SetErrorState("Could not find the ranked survival seed '" + seedId + "' in " + ModRankedSurvivalBatchSeedCatalog.GetInstalledRootPath() + ".");
+                SetErrorState("The server returned an invalid Ruleset 7 Survival seed.");
                 return false;
             }
-
-            float spawnX = Mathf.Abs(_currentState.spawnX) > float.Epsilon ? _currentState.spawnX : _lastPreparedSpawnX;
-            float spawnZ = Mathf.Abs(_currentState.spawnZ) > float.Epsilon ? _currentState.spawnZ : _lastPreparedSpawnZ;
-            if ((Mathf.Abs(spawnX) <= float.Epsilon && Mathf.Abs(spawnZ) <= float.Epsilon) &&
-                TryParseSpawnFromSeedValue(seedValue, out float parsedSpawnX, out float parsedSpawnZ))
-            {
-                spawnX = parsedSpawnX;
-                spawnZ = parsedSpawnZ;
-            }
-            string spawnDescription =
-                "Private room survival spawn at X=" +
-                spawnX.ToString("0.###", CultureInfo.InvariantCulture) +
-                ", Z=" +
-                spawnZ.ToString("0.###", CultureInfo.InvariantCulture) +
-                " for seed '" +
-                seedId +
-                "'.";
 
             _lastPreparedSeedId = seedId;
             _lastPreparedSeedValue = seedValue;
-            _lastPreparedSpawnX = spawnX;
-            _lastPreparedSpawnZ = spawnZ;
-            _lastPreparedSpawnDescription = spawnDescription;
-            ModRankedSurvivalBatchSeedRuntime.PreparePendingExternalSelection(seedDirectoryPath, seedId, spawnX, spawnZ, spawnDescription);
+            _lastPreparedSpawnX = 0f;
+            _lastPreparedSpawnZ = 0f;
+            _lastPreparedSpawnDescription = "Lifepod position is generated by Ruleset 7 from seed '" + seedValue + "'.";
             return true;
-        }
-
-        private static bool TryParseSpawnFromSeedValue(string seedValue, out float spawnX, out float spawnZ)
-        {
-            spawnX = 0f;
-            spawnZ = 0f;
-            if (string.IsNullOrEmpty(seedValue))
-            {
-                return false;
-            }
-
-            string[] parts = seedValue.Split('|');
-            if (parts.Length < 4)
-            {
-                return false;
-            }
-
-            return float.TryParse(parts[2], NumberStyles.Float, CultureInfo.InvariantCulture, out spawnX) &&
-                   float.TryParse(parts[3], NumberStyles.Float, CultureInfo.InvariantCulture, out spawnZ);
         }
 
         private static void TryNotifyServerRoomLeave()

@@ -124,21 +124,21 @@ namespace SubnauticaSpeedrunningMod.Runtime
 
         public static void SelectVanilla()
         {
-            _launchMode = ModClientLaunchMode.Vanilla;
+            SetLaunchMode(ModClientLaunchMode.Vanilla, "Vanilla selected");
             ClearPracticeSelection();
             ClearMultiplayerSelection();
         }
 
         public static void SelectRankedMultiplayer()
         {
-            _launchMode = ModClientLaunchMode.ModMultiplayer;
+            SetLaunchMode(ModClientLaunchMode.ModMultiplayer, "Multiplayer race selected");
             ClearPracticeSelection();
             ClearMultiplayerSelection();
         }
 
         public static void SelectRankedMultiplayer(string mode)
         {
-            _launchMode = ModClientLaunchMode.ModMultiplayer;
+            SetLaunchMode(ModClientLaunchMode.ModMultiplayer, "Multiplayer race mode selected: " + (mode ?? string.Empty));
             ClearPracticeSelection();
             _multiplayerMode = mode ?? string.Empty;
         }
@@ -152,7 +152,7 @@ namespace SubnauticaSpeedrunningMod.Runtime
             string seedId,
             string seedValue)
         {
-            _launchMode = ModClientLaunchMode.ModMultiplayer;
+            SetLaunchMode(ModClientLaunchMode.ModMultiplayer, "Server match activated: " + (matchId ?? string.Empty));
             ClearPracticeSelection();
             _multiplayerMode = mode ?? string.Empty;
             _multiplayerMatchId = matchId ?? string.Empty;
@@ -176,7 +176,7 @@ namespace SubnauticaSpeedrunningMod.Runtime
             string seedId,
             string seedValue)
         {
-            _launchMode = ModClientLaunchMode.ModMultiplayer;
+            SetLaunchMode(ModClientLaunchMode.ModMultiplayer, "Local private race activated");
             ClearPracticeSelection();
             _multiplayerMode = mode ?? string.Empty;
             _multiplayerMatchId = "local-private-race";
@@ -192,21 +192,21 @@ namespace SubnauticaSpeedrunningMod.Runtime
 
         public static void SelectRankedSingleplayerPractice()
         {
-            _launchMode = ModClientLaunchMode.ModSingleplayerPractice;
+            SetLaunchMode(ModClientLaunchMode.ModSingleplayerPractice, "Singleplayer Race Practice selected");
             ClearPracticeSelection();
             ClearMultiplayerSelection();
         }
 
         public static void SelectBetterRngSingleplayer()
         {
-            _launchMode = ModClientLaunchMode.ModBetterRngSingleplayer;
+            SetLaunchMode(ModClientLaunchMode.ModBetterRngSingleplayer, "BetterRNG singleplayer selected");
             ClearPracticeSelection();
             ClearMultiplayerSelection();
         }
 
         public static void SelectPracticeSave(string category, string saveId, bool enableTimer, bool startsWithSuperSeaglide)
         {
-            _launchMode = ModClientLaunchMode.ModPracticeSave;
+            SetLaunchMode(ModClientLaunchMode.ModPracticeSave, "Practice save selected: " + (saveId ?? string.Empty));
             _practiceCategory = category ?? string.Empty;
             _practiceSaveId = saveId ?? string.Empty;
             _practiceSaveTimerEnabled = enableTimer;
@@ -216,7 +216,7 @@ namespace SubnauticaSpeedrunningMod.Runtime
 
         public static void ResetForMainMenu()
         {
-            _launchMode = ModClientLaunchMode.Vanilla;
+            SetLaunchMode(ModClientLaunchMode.Vanilla, "Returned to main menu");
             ClearPracticeSelection();
             ClearMultiplayerSelection();
         }
@@ -227,6 +227,16 @@ namespace SubnauticaSpeedrunningMod.Runtime
             _practiceSaveId = string.Empty;
             _practiceSaveTimerEnabled = false;
             _practiceSaveStartsWithSuperSeaglide = false;
+        }
+
+        private static void SetLaunchMode(ModClientLaunchMode mode, string reason)
+        {
+            ModClientLaunchMode previous = _launchMode;
+            _launchMode = mode;
+            if (previous != mode)
+            {
+                ModLog.Info("Client launch mode changed: " + previous + " -> " + mode + ". " + (reason ?? string.Empty));
+            }
         }
 
         private static void ClearMultiplayerSelection()

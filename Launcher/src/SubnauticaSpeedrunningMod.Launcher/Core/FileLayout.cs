@@ -91,8 +91,8 @@ internal sealed class FileLayout
         var defaultConfig = """
 <?xml version="1.0" encoding="utf-8"?>
 <LoaderConfig>
-  <EnableNetworking>false</EnableNetworking>
-  <ApiBaseUrl>https://example.invalid/</ApiBaseUrl>
+  <EnableNetworking>true</EnableNetworking>
+  <ApiBaseUrl>https://subnautica-speedrunning-server.onrender.com/</ApiBaseUrl>
   <ModEnvironmentName>production</ModEnvironmentName>
   <EnableCrashUpload>false</EnableCrashUpload>
   <LogLevel>Info</LogLevel>
