@@ -70,6 +70,11 @@ namespace SubnauticaSpeedrunningMod.Bootstrap
                     return;
                 }
 
+                Ruleset7AssemblyLoader.Load(gameRoot, runtimePath, delegate(string message)
+                {
+                    Write(logPath, message);
+                });
+
                 Assembly runtimeAssembly = Assembly.LoadFrom(runtimePath);
                 Type runtimeEntryType = runtimeAssembly.GetType("SubnauticaSpeedrunningMod.Runtime.RuntimeEntry", true);
                 MethodInfo initializeMethod = runtimeEntryType.GetMethod("Initialize", BindingFlags.Public | BindingFlags.Static);

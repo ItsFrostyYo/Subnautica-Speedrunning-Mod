@@ -63,7 +63,7 @@ namespace SubnauticaSpeedrunningMod.Runtime
                 return;
             }
 
-            if (!_pollInFlight && Time.unscaledTime >= _nextPollAt)
+            if (!_pollInFlight && !IsMatchCompleted && Time.unscaledTime >= _nextPollAt)
             {
                 BeginPoll(matchId);
             }
@@ -422,15 +422,20 @@ namespace SubnauticaSpeedrunningMod.Runtime
         {
             if (_currentState == null)
             {
-                return 0.12f;
+                return 0.25f;
             }
 
-            if (!string.Equals(_currentState.status, "Completed", StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(_currentState.status, "WaitingForReady", StringComparison.OrdinalIgnoreCase))
             {
-                return 0.12f;
+                return 0.15f;
             }
 
-            return 0.35f;
+            if (string.Equals(_currentState.status, "InProgress", StringComparison.OrdinalIgnoreCase))
+            {
+                return 0.25f;
+            }
+
+            return 0.5f;
         }
 
         private static ModMatchPlayerDto GetLocalPlayer()

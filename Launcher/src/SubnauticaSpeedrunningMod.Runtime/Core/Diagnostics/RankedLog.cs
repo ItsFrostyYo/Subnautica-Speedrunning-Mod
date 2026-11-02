@@ -1,5 +1,7 @@
 using System;
 using System.IO;
+using System.Diagnostics;
+using SubnauticaSpeedrunningMod.Shared;
 
 namespace SubnauticaSpeedrunningMod.Runtime
 {
@@ -11,8 +13,13 @@ namespace SubnauticaSpeedrunningMod.Runtime
         public static void Initialize(string logsDirectory)
         {
             Directory.CreateDirectory(logsDirectory);
-            _logPath = Path.Combine(logsDirectory, "runtime-" + DateTime.Now.ToString("yyyyMMdd") + ".log");
-            Info("Logging initialized.");
+            int processId = Process.GetCurrentProcess().Id;
+            _logPath = Path.Combine(
+                logsDirectory,
+                "runtime-" + DateTime.Now.ToString("yyyyMMdd-HHmmss") + "-p" + processId + ".log");
+            Info("Runtime logging initialized. Version=" + ModClientRelease.DisplayVersion +
+                ", ProcessId=" + processId +
+                ", Machine='" + Environment.MachineName + "'.");
         }
 
         public static void Info(string message)
@@ -44,9 +51,16 @@ namespace SubnauticaSpeedrunningMod.Runtime
                     return;
                 }
 
-                File.AppendAllText(
-                    _logPath,
-                    "[" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff") + "] " + level + " " + message + Environment.NewLine);
+                try
+                {
+                    File.AppendAllText(
+                        _logPath,
+                        "[" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff") + "] " + level + " " + (message ?? string.Empty) + Environment.NewLine);
+                }
+                catch
+                {
+                    // Logging must never interrupt the game or a menu action.
+                }
             }
         }
     }

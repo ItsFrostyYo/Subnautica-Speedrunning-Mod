@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using SubnauticaSpeedrunningMod.Runtime.Practice;
+using SubnauticaSpeedrunningMod.Runtime.Seeds.Ruleset7;
 using SubnauticaSpeedrunningMod.Runtime;
 using SubnauticaSpeedrunningMod.Shared;
 using UnityEngine;
@@ -38,9 +39,9 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
         private const string PrivateRaceRoomModeRowName = "ModPrivateRaceRoomMode";
         private const string PrivateRaceRoomStartButtonName = "ModPrivateRaceRoomStart";
         private const string PrivateRaceRoomChoiceValueName = "ModPrivateRaceRoomChoiceValue";
-        private const string UpdatePanelTitleText = "Update Beta-0.10.1";
+        private const string UpdatePanelTitleText = "Update Beta-0.11.1";
         // Edit this message each release to show the newest client changes on the main menu.
-        private const string UpdatePanelBodyText = "Added Hosting and Joining Races for 1v1ing Friends, Seeds will be Added in Future Updates, also updated Hardcore BetterRNG to have more Propulsion Cannon/MVB inside Wrecks in Grassy Plateau, aswell as having a Quit Button to Quit Without Saving.";
+        private const string UpdatePanelBodyText = "Updated Races to use Set Seed and added 1000 Seeds for Survival Any%";
         private const string UpdatePanelBodyObjectName = "ModUpdatePanelBody";
         private const int WatermarkFontSize = 18;
         private const int QueueButtonFontSize = 34;
@@ -1098,6 +1099,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
                 null);
 
             SetPanelTitle(practiceGroup, "New Game");
+            ModLog.Info("Configured Singleplayer Race Practice buttons for Survival and Creative.");
         }
 
         private static void ConfigureLeaderboardHomeGroup(GameObject leaderboardGroup)
@@ -1493,25 +1495,51 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
 
         private static void StartRankedPracticeNewGame(GameMode gameMode)
         {
+            ModLog.Info("Singleplayer Race new-game button clicked for mode '" + gameMode + "'.");
             ModClientSessionMode.SelectRankedSingleplayerPractice();
 
             uGUI_MainMenu menu = uGUI_MainMenu.main;
             if (menu == null)
             {
+                ModLog.Error("Singleplayer Race could not start because uGUI_MainMenu.main was null.");
                 return;
             }
 
-            switch (gameMode)
+            if (gameMode == GameMode.Survival && !Ruleset7RaceSession.PrepareSingleplayerFromPool())
             {
-                case GameMode.Survival:
-                    menu.OnButtonSurvival();
-                    break;
-                case GameMode.Creative:
-                    menu.OnButtonCreative();
-                    break;
-                case GameMode.Hardcore:
-                    menu.OnButtonHardcore();
-                    break;
+                const string message = "Survival Race could not load the Ruleset 7 seed pool. Check the runtime log for details.";
+                ModLog.Error(message);
+                if (uGUI.main != null && uGUI.main.confirmation != null)
+                {
+                    uGUI.main.confirmation.Show(message, delegate(bool confirmed) { });
+                }
+                return;
+            }
+
+            try
+            {
+                switch (gameMode)
+                {
+                    case GameMode.Survival:
+                        ModLog.Info("Calling the game Survival new-save path for Singleplayer Race.");
+                        menu.OnButtonSurvival();
+                        break;
+                    case GameMode.Creative:
+                        menu.OnButtonCreative();
+                        break;
+                    case GameMode.Hardcore:
+                        menu.OnButtonHardcore();
+                        break;
+                }
+            }
+            catch (Exception ex)
+            {
+                ModLog.Error("Singleplayer Race failed while starting the game mode '" + gameMode + "'.", ex);
+                const string message = "Singleplayer Race could not start. Check the runtime log for details.";
+                if (uGUI.main != null && uGUI.main.confirmation != null)
+                {
+                    uGUI.main.confirmation.Show(message, delegate(bool confirmed) { });
+                }
             }
         }
 
@@ -3037,10 +3065,14 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
             GameObject practiceGroup = FindGroup(rightSide, ModPracticeNewGameGroupName);
             if (practiceGroup == null)
             {
+                _rankedPracticeNewGamePatched = false;
                 return;
             }
 
-            ConfigureRankedPracticeNewGameGroup(practiceGroup);
+            // The action rows own live Unity listeners. Rebuilding them during every menu
+            // refresh can replace a listener in the same frame the player clicks it.
+            // Configure this panel once per menu instance and leave its rows stable.
+            SetPanelTitle(practiceGroup, "New Game");
         }
 
         private static void SyncPracticeSaveGroup(MainMenuRightSide rightSide)

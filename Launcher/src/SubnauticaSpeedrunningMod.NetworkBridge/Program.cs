@@ -44,12 +44,13 @@ builder.Services.AddSingleton(new BridgeOptions(listenUrl, remoteBaseUrl, parent
 builder.Services.AddHttpClient("relay", client =>
 {
     client.Timeout = TimeSpan.FromSeconds(75);
-    client.DefaultRequestHeaders.ConnectionClose = true;
     client.DefaultRequestHeaders.UserAgent.ParseAdd("SubnauticaSpeedrunningMod.NetworkBridge");
 }).ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
 {
     AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate,
-    UseProxy = false
+    UseProxy = false,
+    PooledConnectionIdleTimeout = TimeSpan.FromMinutes(2),
+    PooledConnectionLifetime = TimeSpan.FromMinutes(10)
 });
 
 var app = builder.Build();

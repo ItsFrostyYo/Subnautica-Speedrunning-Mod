@@ -6,6 +6,7 @@ using UnityEngine.SceneManagement;
 using SubnauticaSpeedrunningMod.Runtime;
 using SubnauticaSpeedrunningMod.Runtime.Practice;
 using SubnauticaSpeedrunningMod.Runtime.Seeds;
+using SubnauticaSpeedrunningMod.Runtime.Seeds.Ruleset7;
 using SubnauticaSpeedrunningMod.Runtime.Ui;
 
 namespace SubnauticaSpeedrunningMod.Runtime.RunTracking
@@ -139,13 +140,13 @@ namespace SubnauticaSpeedrunningMod.Runtime.RunTracking
                 _currentSaveSlot,
                 _state == ModGameStateKind.MainMenu,
                 Utils.GetContinueMode());
-            SeededLifepodPlacement.Update((rankedPracticeActive || rankedMultiplayerActive) && ShouldApplySeededLifepodPlacement());
+            SeededLifepodPlacement.Update(!SeedRuntime.Active && (rankedPracticeActive || rankedMultiplayerActive) && ShouldApplySeededLifepodPlacement());
 
             bool seedWorldActive =
                 (rankedPracticeActive || rankedMultiplayerActive) &&
                 _state != ModGameStateKind.Booting &&
                 _state != ModGameStateKind.MainMenu;
-            ModSeedWorldRuntime.Update(seedWorldActive, (rankedPracticeActive || rankedMultiplayerActive) && _state == ModGameStateKind.InGame);
+            ModSeedWorldRuntime.Update(!SeedRuntime.Active && seedWorldActive, !SeedRuntime.Active && (rankedPracticeActive || rankedMultiplayerActive) && _state == ModGameStateKind.InGame);
 
             bool worldReady =
                 _state == ModGameStateKind.InGame &&
@@ -216,7 +217,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.RunTracking
             bool rankedMultiplayerSelected = ModClientSessionMode.IsRankedMultiplayerSelected;
             if (!rankedSingleplayerSelected && !rankedMultiplayerSelected)
             {
-                ModRankedSurvivalBatchSeedRuntime.ResetSession();
+                Ruleset7RaceSession.Reset();
                 if (!string.IsNullOrEmpty(_lastActivatedSeedSaveSlot) || _lastActivatedSeedMode != GameMode.None)
                 {
                     _lastActivatedSeedSaveSlot = string.Empty;
@@ -253,18 +254,16 @@ namespace SubnauticaSpeedrunningMod.Runtime.RunTracking
 
             if (ModClientSessionMode.IsBetterRngSingleplayerSelected)
             {
-                ModRankedSurvivalBatchSeedRuntime.ResetSession();
+                Ruleset7RaceSession.Reset();
                 _lastActivatedSeedSaveSlot = string.Empty;
                 _lastActivatedSeedMode = GameMode.None;
                 ModSeedStore.ResetSessionSelections();
                 return;
             }
 
-            if (rankedSingleplayerSelected &&
-                mode == GameMode.Survival &&
-                ModRankedSurvivalBatchSeedRuntime.IsSeedContextActive(saveSlot, mode))
+            if (mode == GameMode.Survival && SeedRuntime.Active)
             {
-                ActivateSeedContext(saveSlot, mode, "Activated ranked survival batch seed context");
+                ActivateSeedContext(saveSlot, mode, "Activated Ruleset 7 race seed context");
                 return;
             }
 
@@ -300,7 +299,8 @@ namespace SubnauticaSpeedrunningMod.Runtime.RunTracking
             SeededLifepodPlacement.Reset();
             ModLog.Info(logLabel + " for save slot '" + saveSlot + "' in mode '" + mode + "'.");
 
-            if (!Utils.GetContinueMode() &&
+            if (!SeedRuntime.Active &&
+                !Utils.GetContinueMode() &&
                 (ModSeedRuntimeHost.IsRankedSingleplayerSeedActive() || ModSeedRuntimeHost.IsRankedMultiplayerSeedActive()))
             {
                 Vector3 seededStartPoint;
@@ -1460,6 +1460,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.RunTracking
             ModSeedStore.ResetSessionSelections();
             ModSeedWorldRuntime.Reset();
             SeededLifepodPlacement.Reset();
+            Ruleset7RaceSession.Reset();
             ConsistentScreenshotClip.Reset();
         }
 
