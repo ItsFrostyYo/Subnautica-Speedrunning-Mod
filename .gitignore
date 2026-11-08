@@ -6,6 +6,8 @@ Launcher/publish/
 Installer/publish/
 
 # Local release artifacts
+/artifacts/PreloadBaseValidation/
+/artifacts/PracticeAndLaunchValidation/
 release/*
 !release/README.md
 !release/*.json

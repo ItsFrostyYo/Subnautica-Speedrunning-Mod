@@ -1,6 +1,8 @@
 using System;
 using System.IO;
 using System.Reflection;
+using System.Diagnostics;
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using SubnauticaSpeedrunningMod.Shared;
 
@@ -48,6 +50,13 @@ namespace SubnauticaSpeedrunningMod.Bootstrap
                 string logPath = Path.Combine(logsDirectory, "bootstrap.log");
                 Write(logPath, "Bootstrap starting.");
                 Write(logPath, "Game root: " + gameRoot);
+                if (TryHandoffDirectLaunchToLauncher(modRoot, logPath))
+                {
+                    // This is still early bootstrap: no world or player exists.
+                    // The launcher waits for us to exit before checking/updating.
+                    Environment.Exit(0);
+                    return;
+                }
                 GameInstallValidationReport validationReport = GameInstallValidator.Validate(gameRoot);
                 if (!validationReport.IsValid)
                 {
@@ -121,13 +130,49 @@ namespace SubnauticaSpeedrunningMod.Bootstrap
 
         private static bool TryHandoffDirectLaunchToLauncher(string modRoot, string logPath)
         {
-            string launcherVersion = Environment.GetEnvironmentVariable("MOD_LAUNCHER_VERSION") ?? string.Empty;
-            if (string.IsNullOrEmpty(launcherVersion) || launcherVersion.Trim().Length == 0)
+            const string startedByLauncher = "MOD_LAUNCHER_STARTED_GAME";
+            if (Environment.GetEnvironmentVariable(startedByLauncher) == "1")
             {
-                Write(logPath, "Direct Subnautica.exe launch detected. Continuing with in-process runtime initialization.");
+                // Consume the one-use marker so a Steam process started later by
+                // this game cannot inherit a permanent launcher bypass.
+                Environment.SetEnvironmentVariable(startedByLauncher, null);
+                return false;
             }
-
-            return false;
+            string launcherPath = Path.Combine(modRoot, "Launch Mod.exe");
+            if (!File.Exists(launcherPath))
+            {
+                Write(logPath, "Direct launch: launcher missing; continuing with in-process runtime initialization.");
+                return false;
+            }
+            try
+            {
+                var args = new List<string>();
+                args.Add("--handoff-pid");
+                args.Add(Process.GetCurrentProcess().Id.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                string[] original = Environment.GetCommandLineArgs();
+                for (int i = 1; i < original.Length; i++) args.Add(original[i]);
+                for (int i = 0; i < args.Count; i++) args[i] = WindowsCommandLine.Quote(args[i]);
+                var startInfo = new ProcessStartInfo
+                {
+                    FileName = launcherPath,
+                    Arguments = string.Join(" ", args.ToArray()),
+                    WorkingDirectory = modRoot,
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    WindowStyle = ProcessWindowStyle.Hidden
+                };
+                using (var launcher = Process.Start(startInfo))
+                {
+                    if (launcher == null) return false;
+                    Write(logPath, "Direct EXE/Steam launch handed off to launcher process " + launcher.Id + ".");
+                }
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Write(logPath, "Direct-launch handoff failed; continuing in process: " + ex.Message);
+                return false;
+            }
         }
 
         private static void ShowValidationFailure(GameInstallValidationReport validationReport, string validationPath)

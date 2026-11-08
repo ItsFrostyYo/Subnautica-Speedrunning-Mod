@@ -1,6 +1,6 @@
 # Subnautica Speedrunning Mod
 
-Current public beta: `Beta-0.11.1`
+Current build: `Beta-0.11.3`
 
 This is a Custom Launcher and Mod for Subnautica Septmember 30th 2018 Version of the game, which is the most prominent Speedrunning Version.
 
@@ -12,4 +12,10 @@ Survival Race Practice and Survival 1v1 use the Set Seed Ruleset 7 engine. Singl
 
 ### Updates
 
-The Mod Currently will Auto Update, so you will always be Prompted to Update so you are never left Behind.
+Practice settings now use the game's own tab toggle, layout and choice controls. Hotbar and health images fit inside the native value area; Day/Night uses the original choice text. Native hover, selection, arrow sizes and keyboard/controller navigation are retained.
+
+Subnautica.exe launches hand off once to Launch Mod.exe, so direct and Steam launches use the same validation and update flow as Launch Mod.cmd. Steam must launch the game folder containing this mod package. The launcher clears inherited Doorstop startup flags before starting the game, and the bootstrap consumes a one-use launch marker to prevent relaunch loops.
+
+General settings now include Optimizations > Improve Preload Base, a native Off/On choice that defaults to On and persists between launches. On reuses loaded base-building prefab assets between attempts in the same game session. Off uses the game's original base-piece loading path. Only prefab assets are retained; each world and its base registrations are fresh. The filtered 1,000-seed pool is bundled with this build.
+
+The updater prompts when a newer published package is available. The Beta-0.11.3 package was tested with the actual Beta-0.11.1 launcher/updater, including preservation of user data and restoration after a blocked update write.
