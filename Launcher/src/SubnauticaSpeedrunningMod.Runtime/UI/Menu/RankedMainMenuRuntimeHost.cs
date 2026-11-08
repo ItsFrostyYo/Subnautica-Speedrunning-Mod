@@ -39,9 +39,9 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
         private const string PrivateRaceRoomModeRowName = "ModPrivateRaceRoomMode";
         private const string PrivateRaceRoomStartButtonName = "ModPrivateRaceRoomStart";
         private const string PrivateRaceRoomChoiceValueName = "ModPrivateRaceRoomChoiceValue";
-        private const string UpdatePanelTitleText = "Update Beta-0.11.1";
+        private const string UpdatePanelTitleText = "Update Beta-0.11.3";
         // Edit this message each release to show the newest client changes on the main menu.
-        private const string UpdatePanelBodyText = "Updated Races to use Set Seed and added 1000 Seeds for Survival Any%";
+        private const string UpdatePanelBodyText = "Added new Option to Improve Load Times by Reusing Preloaded Base Pieces, and updated the 1000 seeds for improvements";
         private const string UpdatePanelBodyObjectName = "ModUpdatePanelBody";
         private const int WatermarkFontSize = 18;
         private const int QueueButtonFontSize = 34;
@@ -179,11 +179,6 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
             if (!IsMainMenuPatchStable() || optionsVisible)
             {
                 TrySuppressMainMenuHomePanel();
-                if (optionsVisible)
-                {
-                    ModOptionsPanelRuntime.RefreshLivePanel();
-                }
-
                 _nextMenuPatchAttemptAt = Time.unscaledTime;
                 return;
             }
@@ -193,7 +188,6 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
             if (Time.unscaledTime >= _nextMenuPatchAttemptAt)
             {
                 TrySuppressMainMenuHomePanel();
-                ModOptionsPanelRuntime.RefreshLivePanel();
                 _nextMenuPatchAttemptAt = Time.unscaledTime + MenuPatchRetryIntervalSeconds;
             }
         }

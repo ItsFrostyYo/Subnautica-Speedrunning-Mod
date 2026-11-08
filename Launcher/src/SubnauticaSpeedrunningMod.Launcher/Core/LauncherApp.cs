@@ -104,11 +104,7 @@ internal static class LauncherApp
             return 0;
         }
 
-        var forwardedArguments = args
-            .Where(static arg => !string.Equals(arg, "--setup-only", StringComparison.OrdinalIgnoreCase))
-            .Where(static arg => !string.Equals(arg, "--handoff-pid", StringComparison.OrdinalIgnoreCase))
-            .Where((arg, index) => !IsHandoffPidValue(args, index))
-            .Select(QuoteIfNeeded);
+        var forwardedArguments = WindowsCommandLine.GameArguments(args).Select(WindowsCommandLine.Quote);
         var sessionId = Guid.NewGuid().ToString("N");
 
         var startInfo = new ProcessStartInfo
@@ -123,6 +119,11 @@ internal static class LauncherApp
         startInfo.Environment["MOD_GAME_ROOT"] = layout.GameRoot;
         startInfo.Environment["MOD_SESSION_ID"] = sessionId;
         startInfo.Environment["MOD_LAUNCHER_VERSION"] = LauncherVersion.DisplayVersion;
+        startInfo.Environment["MOD_LAUNCHER_STARTED_GAME"] = "1";
+        // A direct-launch handoff inherits Doorstop's process-local initialization
+        // marker. It must not suppress injection in the new game process.
+        startInfo.Environment.Remove("DOORSTOP_INITIALIZED");
+        startInfo.Environment.Remove("DOORSTOP_DISABLE");
 
         if (TryFindExistingGameProcess(layout.GameExecutablePath, handoffProcessId, out var existingProcessId))
         {
@@ -164,22 +165,6 @@ internal static class LauncherApp
         }
 
         return 0;
-    }
-
-    private static bool IsHandoffPidValue(string[] args, int index)
-    {
-        return index > 0 &&
-               string.Equals(args[index - 1], "--handoff-pid", StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static string QuoteIfNeeded(string value)
-    {
-        if (value.Contains(' ') || value.Contains('"'))
-        {
-            return "\"" + value.Replace("\"", "\\\"") + "\"";
-        }
-
-        return value;
     }
 
     private static bool WaitForHandoffProcessExit(int handoffProcessId)

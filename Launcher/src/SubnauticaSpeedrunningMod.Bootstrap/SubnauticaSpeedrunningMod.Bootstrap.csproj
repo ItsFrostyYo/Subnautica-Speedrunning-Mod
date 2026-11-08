@@ -23,5 +23,6 @@
     <Compile Include="..\Shared\ModCompatibilityProfile.cs" Link="Shared\ModCompatibilityProfile.cs" />
     <Compile Include="..\Shared\GameInstallValidator.cs" Link="Shared\GameInstallValidator.cs" />
     <Compile Include="..\Shared\ModClientRelease.cs" Link="Shared\ModClientRelease.cs" />
+    <Compile Include="..\Shared\WindowsCommandLine.cs" Link="Shared\WindowsCommandLine.cs" />
   </ItemGroup>
 </Project>

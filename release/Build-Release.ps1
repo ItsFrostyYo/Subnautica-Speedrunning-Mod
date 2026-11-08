@@ -1,5 +1,5 @@
 param(
-    [string]$VersionLabel = "Beta-0.11.1",
+    [string]$VersionLabel = "Beta-0.11.3",
     [string]$GameInstallRoot = "C:\Program Files (x86)\Steam\steamapps\common\SubnauticaRanked"
 )
 
@@ -37,6 +37,13 @@ function Ensure-Directory {
 
 function Reset-Directory {
     param([string]$Path)
+    $resolved = [IO.Path]::GetFullPath($Path)
+    $releaseBase = [IO.Path]::GetFullPath($PSScriptRoot).TrimEnd('\') + '\'
+    $installBase = [IO.Path]::GetFullPath($installModRoot).TrimEnd('\') + '\'
+    if (-not ($resolved.StartsWith($releaseBase, [StringComparison]::OrdinalIgnoreCase) -or
+              $resolved.StartsWith($installBase, [StringComparison]::OrdinalIgnoreCase))) {
+        throw "Refusing to reset a directory outside release/install output: $resolved"
+    }
     if (Test-Path -LiteralPath $Path) {
         Remove-Item -LiteralPath $Path -Recurse -Force
     }
@@ -118,6 +125,15 @@ function Test-ReleasePackage {
         $unexpectedBuildFiles = @($entries | Where-Object { $_ -match '(?i)\.(pdb|cs)$' })
         if ($unexpectedBuildFiles.Count -gt 0) {
             throw "Release package contains source/debug files: $($unexpectedBuildFiles -join ', ')"
+        }
+        if ($entries | Where-Object { $_ -match '(?i)(^|/)Temporary[^/]*Validation\.dll$' }) {
+            throw 'Release package contains a temporary validation harness.'
+        }
+        $doorstop = $archive.Entries | Where-Object { $_.FullName -eq 'doorstop_config.ini' } | Select-Object -First 1
+        $reader = [IO.StreamReader]::new($doorstop.Open())
+        try { $doorstopText = $reader.ReadToEnd() } finally { $reader.Dispose() }
+        if ($doorstopText -notmatch 'target_assembly\s*=\s*SubnauticaSpeedrunningMod[\\/]Bootstrap[\\/]SubnauticaSpeedrunningMod\.Bootstrap\.dll') {
+            throw 'Release package does not point to the normal mod bootstrap.'
         }
     }
     finally {
