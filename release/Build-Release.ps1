@@ -1,5 +1,5 @@
 param(
-    [string]$VersionLabel = "Beta-0.11.3",
+    [string]$VersionLabel = "Beta-0.11.4",
     [string]$GameInstallRoot = "C:\Program Files (x86)\Steam\steamapps\common\SubnauticaRanked"
 )
 
@@ -26,7 +26,7 @@ $bridgePublishRoot = Join-Path $buildTempRoot "bridge"
 
 $practiceSourceRoot = Join-Path $srcRoot "SubnauticaSpeedrunningMod.Runtime\PracticeSaveFiles"
 $languageSourceRoot = Join-Path $srcRoot "SubnauticaSpeedrunningMod.Runtime\LanguageFiles"
-$ruleset7SeedPoolPath = Join-Path $srcRoot "SubnauticaSpeedrunningMod.Runtime\Seeds\Ruleset7\1000SurvivalGlitchedAny%.csv"
+$ruleset8SeedPoolPath = Join-Path $srcRoot "SubnauticaSpeedrunningMod.Runtime\Seeds\Ruleset8\1000SurvivalGlitchedAny%.csv"
 
 function Ensure-Directory {
     param([string]$Path)
@@ -148,7 +148,7 @@ function Test-ReleasePackage {
 
     $seedCount = @(Get-Content -LiteralPath $ExpectedSeedPoolPath | Where-Object { $_ -match '^\s*[+-]?\d+\s*$' }).Count
     if ($seedCount -ne 1000) {
-        throw "Ruleset 7 release seed pool contains $seedCount numeric seeds instead of 1000."
+        throw "Ruleset 8 release seed pool contains $seedCount numeric seeds instead of 1000."
     }
 }
 
@@ -194,7 +194,7 @@ if (Test-Path -LiteralPath (Join-Path $installModRoot "Seeds\RankedSurvival")) {
 }
 Get-ChildItem -LiteralPath (Join-Path $installModRoot "Seeds") -File -Filter "*SurvivalGlitchedAny%.csv" -ErrorAction SilentlyContinue |
     Remove-Item -Force
-Copy-Item -LiteralPath $ruleset7SeedPoolPath -Destination (Join-Path $installModRoot "Seeds\1000SurvivalGlitchedAny%.csv") -Force
+Copy-Item -LiteralPath $ruleset8SeedPoolPath -Destination (Join-Path $installModRoot "Seeds\1000SurvivalGlitchedAny%.csv") -Force
 
 Remove-FilesByPattern -Root (Join-Path $installModRoot "Bridge") -Patterns @("*.pdb")
 
@@ -242,7 +242,7 @@ Add-Type -AssemblyName System.IO.Compression.FileSystem
     $zipPath,
     [System.IO.Compression.CompressionLevel]::Optimal,
     $false)
-Test-ReleasePackage -PackagePath $zipPath -ExpectedVersion $VersionLabel -ExpectedSeedPoolPath $ruleset7SeedPoolPath
+Test-ReleasePackage -PackagePath $zipPath -ExpectedVersion $VersionLabel -ExpectedSeedPoolPath $ruleset8SeedPoolPath
 $zipSha256 = (Get-FileHash -LiteralPath $zipPath -Algorithm SHA256).Hash
 Write-LatestManifest -ManifestPath $latestJsonPath -Version $VersionLabel -ZipFileName ([System.IO.Path]::GetFileName($zipPath)) -Sha256 $zipSha256
 

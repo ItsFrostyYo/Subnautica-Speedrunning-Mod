@@ -3,11 +3,11 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 
-namespace SubnauticaSpeedrunningMod.Runtime.Seeds.Ruleset7
+namespace SubnauticaSpeedrunningMod.Runtime.Seeds.Ruleset8
 {
-    internal static class Ruleset7SeedPool
+    internal static class Ruleset8SeedPool
     {
-        internal const int RulesetVersion = 7;
+        internal const int RulesetVersion = GenerationRules.CurrentVersion;
         private const string FileName = "1000SurvivalGlitchedAny%.csv";
         private static readonly object Sync = new object();
         private static readonly Random Random = new Random();
@@ -32,7 +32,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds.Ruleset7
             string path = Path.Combine(Path.Combine(PathLayout.GetModRoot(), "Seeds"), FileName);
             if (!File.Exists(path))
             {
-                throw new FileNotFoundException("Ruleset 7 race seed pool is missing.", path);
+                throw new FileNotFoundException("Ruleset 8 race seed pool is missing.", path);
             }
 
             List<string> values = new List<string>();
@@ -60,11 +60,11 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds.Ruleset7
                 // System.IO.InvalidDataException even though the desktop build SDK can.
                 // IOException is available in both runtimes and preserves the intended
                 // failure category without preventing this type from loading at all.
-                throw new IOException("Ruleset 7 race seed pool contains no numeric seeds: " + path);
+                throw new IOException("Ruleset 8 race seed pool contains no numeric seeds: " + path);
             }
 
             _seeds = values.ToArray();
-            ModLog.Info("Loaded " + _seeds.Length + " unique Ruleset 7 Survival race seeds from '" + path + "'.");
+            ModLog.Info("Loaded " + _seeds.Length + " unique Ruleset 8 Survival race seeds from '" + path + "'.");
             return _seeds;
         }
     }

@@ -6,7 +6,7 @@ using UnityEngine.SceneManagement;
 using SubnauticaSpeedrunningMod.Runtime;
 using SubnauticaSpeedrunningMod.Runtime.Practice;
 using SubnauticaSpeedrunningMod.Runtime.Seeds;
-using SubnauticaSpeedrunningMod.Runtime.Seeds.Ruleset7;
+using SubnauticaSpeedrunningMod.Runtime.Seeds.Ruleset8;
 using SubnauticaSpeedrunningMod.Runtime.Ui;
 
 namespace SubnauticaSpeedrunningMod.Runtime.RunTracking
@@ -217,7 +217,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.RunTracking
             bool rankedMultiplayerSelected = ModClientSessionMode.IsRankedMultiplayerSelected;
             if (!rankedSingleplayerSelected && !rankedMultiplayerSelected)
             {
-                Ruleset7RaceSession.Reset();
+                Ruleset8RaceSession.Reset();
                 if (!string.IsNullOrEmpty(_lastActivatedSeedSaveSlot) || _lastActivatedSeedMode != GameMode.None)
                 {
                     _lastActivatedSeedSaveSlot = string.Empty;
@@ -254,7 +254,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.RunTracking
 
             if (ModClientSessionMode.IsBetterRngSingleplayerSelected)
             {
-                Ruleset7RaceSession.Reset();
+                Ruleset8RaceSession.Reset();
                 _lastActivatedSeedSaveSlot = string.Empty;
                 _lastActivatedSeedMode = GameMode.None;
                 ModSeedStore.ResetSessionSelections();
@@ -263,7 +263,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.RunTracking
 
             if (mode == GameMode.Survival && SeedRuntime.Active)
             {
-                ActivateSeedContext(saveSlot, mode, "Activated Ruleset 7 race seed context");
+                ActivateSeedContext(saveSlot, mode, "Activated Ruleset 8 race seed context");
                 return;
             }
 
@@ -1460,7 +1460,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.RunTracking
             ModSeedStore.ResetSessionSelections();
             ModSeedWorldRuntime.Reset();
             SeededLifepodPlacement.Reset();
-            Ruleset7RaceSession.Reset();
+            Ruleset8RaceSession.Reset();
             ConsistentScreenshotClip.Reset();
         }
 

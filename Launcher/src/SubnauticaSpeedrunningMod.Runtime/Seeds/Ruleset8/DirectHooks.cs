@@ -4,7 +4,7 @@ using System.Reflection;
 using UWE;
 using UnityEngine;
 
-namespace SubnauticaSpeedrunningMod.Runtime.Seeds.Ruleset7
+namespace SubnauticaSpeedrunningMod.Runtime.Seeds.Ruleset8
 {
     // Called from IL inserted directly into the build-247 Assembly-CSharp methods.
     public static class DirectHooks
@@ -80,7 +80,8 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds.Ruleset7
                 {
                     continue;
                 }
-                float probability = candidate.probability / slot.GetDensity();
+                float probability = GenerationRules.SpawnWeight(candidate.classId, candidate.probability,
+                    SeedRuntime.RulesetVersion) / slot.GetDensity();
                 if (probability <= 0f)
                 {
                     continue;
@@ -351,7 +352,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds.Ruleset7
             }
 
             // Build 247 normally checks hardness and then an additional 50% roll. Metal
-            // salvage has hardness 0.5, producing an overall 25% chance. Ruleset 7 uses
+            // salvage has hardness 0.5, producing an overall 25% chance. Ruleset 8 uses
             // one deterministic hardness roll, producing the requested 50% salvage rate.
             float hardness = HardnessMixin.GetHardness(target);
             ulong state = SeedRuntime.DeriveComponentEvent(instance, "stalker-tooth-r7");

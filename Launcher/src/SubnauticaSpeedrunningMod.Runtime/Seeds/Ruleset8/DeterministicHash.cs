@@ -3,7 +3,7 @@ using System.Globalization;
 using System.Text;
 using UnityEngine;
 
-namespace SubnauticaSpeedrunningMod.Runtime.Seeds.Ruleset7
+namespace SubnauticaSpeedrunningMod.Runtime.Seeds.Ruleset8
 {
     internal static class DeterministicHash
     {

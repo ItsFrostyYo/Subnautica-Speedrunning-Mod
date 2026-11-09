@@ -6,13 +6,13 @@ using System.Security.Cryptography;
 using System.Text;
 using UnityEngine;
 
-namespace SubnauticaSpeedrunningMod.Runtime.Seeds.Ruleset7
+namespace SubnauticaSpeedrunningMod.Runtime.Seeds.Ruleset8
 {
     internal static class SeedRuntime
     {
         internal const string LegacyMetadataFileName = "subnautica-set-seed.txt";
         internal const string MetadataPattern = "seed-*-R-*.tsv";
-        internal const int RulesetVersion = 7;
+        internal const int RulesetVersion = GenerationRules.CurrentVersion;
         internal const string ExpectedAssemblyHash = "1667ec5ef4475659fad2487bfd67bff1f1560721304b1605629898870849abb7";
 
         private static readonly Dictionary<string, int> EventCounters = new Dictionary<string, int>(StringComparer.Ordinal);
@@ -41,7 +41,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds.Ruleset7
             pendingSeedText = normalized;
             seedText = normalized;
             seedValue = DeterministicHash.SeedFromText(normalized);
-            ModLog.Info("Ruleset 7 pending seed set to '" + seedText + "'.");
+            ModLog.Info("Ruleset 8 pending seed set to '" + seedText + "'.");
         }
 
         internal static void Deactivate()
@@ -57,7 +57,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds.Ruleset7
 
         internal static void ActivatePendingForNewGame()
         {
-            if (!Ruleset7RaceSession.ShouldActivateForNewGame())
+            if (!Ruleset8RaceSession.ShouldActivateForNewGame())
             {
                 Deactivate();
                 return;
@@ -76,7 +76,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds.Ruleset7
 
         internal static void BindCurrentSave()
         {
-            if (!Ruleset7RaceSession.ShouldActivateForNewGame())
+            if (!Ruleset8RaceSession.ShouldActivateForNewGame())
             {
                 Deactivate();
                 return;
@@ -91,7 +91,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds.Ruleset7
             hasLifepodPosition = false;
             lifepodPosition = Vector3.zero;
             ActivateGlobalStream();
-            ModLog.Info("Ruleset 7 seed '" + seedText + "' bound to save slot '" + currentSlot + "'.");
+            ModLog.Info("Ruleset 8 seed '" + seedText + "' bound to save slot '" + currentSlot + "'.");
         }
 
         internal static ulong Derive(string domain)
@@ -311,7 +311,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds.Ruleset7
             hasLifepodPosition = true;
             lifepodPosition = position;
             ModLog.Info(string.Format(CultureInfo.InvariantCulture,
-                "Ruleset 7 seed '{0}' resolved lifepod to ({1:F3}, {2:F3}, {3:F3}).",
+                "Ruleset 8 seed '{0}' resolved lifepod to ({1:F3}, {2:F3}, {3:F3}).",
                 seedText, position.x, position.y, position.z));
         }
 

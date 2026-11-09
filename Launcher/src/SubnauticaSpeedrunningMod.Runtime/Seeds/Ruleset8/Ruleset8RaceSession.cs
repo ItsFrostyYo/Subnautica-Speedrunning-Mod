@@ -3,11 +3,11 @@ using System.Globalization;
 using System.Reflection;
 using HarmonyLib;
 
-namespace SubnauticaSpeedrunningMod.Runtime.Seeds.Ruleset7
+namespace SubnauticaSpeedrunningMod.Runtime.Seeds.Ruleset8
 {
-    internal static class Ruleset7RaceSession
+    internal static class Ruleset8RaceSession
     {
-        private const string HarmonyId = "subnautica.speedrunning.ruleset7.session";
+        private const string HarmonyId = "subnautica.speedrunning.ruleset8.session";
         private static bool _installAttempted;
         private static bool _installed;
         private static string _pendingSeed = string.Empty;
@@ -23,19 +23,19 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds.Ruleset7
             try
             {
                 MethodInfo target = typeof(uGUI_MainMenu).GetMethod("StartNewGame", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-                MethodInfo prefix = typeof(Ruleset7RaceSession).GetMethod("StartNewGamePrefix", BindingFlags.Static | BindingFlags.NonPublic);
+                MethodInfo prefix = typeof(Ruleset8RaceSession).GetMethod("StartNewGamePrefix", BindingFlags.Static | BindingFlags.NonPublic);
                 if (target == null || prefix == null)
                 {
-                    throw new MissingMethodException("Could not resolve uGUI_MainMenu.StartNewGame for Ruleset 7.");
+                    throw new MissingMethodException("Could not resolve uGUI_MainMenu.StartNewGame for Ruleset 8.");
                 }
 
                 new Harmony(HarmonyId).Patch(target, new HarmonyMethod(prefix));
                 _installed = true;
-                ModLog.Info("Ruleset 7 race session hook installed.");
+                ModLog.Info("Ruleset 8 race session hook installed.");
             }
             catch (Exception ex)
             {
-                ModLog.Warn("Ruleset 7 race session hook failed: " + ex);
+                ModLog.Warn("Ruleset 8 race session hook failed: " + ex);
             }
 
             return _installed;
@@ -46,7 +46,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds.Ruleset7
             long numeric;
             if (string.IsNullOrEmpty(seed) || !long.TryParse(seed.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out numeric))
             {
-                ModLog.Warn("Rejected non-numeric Ruleset 7 race seed '" + (seed ?? string.Empty) + "'.");
+                ModLog.Warn("Rejected non-numeric Ruleset 8 race seed '" + (seed ?? string.Empty) + "'.");
                 return false;
             }
 
@@ -59,18 +59,18 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds.Ruleset7
         {
             try
             {
-                string seed = Ruleset7SeedPool.Choose();
+                string seed = Ruleset8SeedPool.Choose();
                 if (!Prepare(seed))
                 {
                     return false;
                 }
 
-                ModLog.Info("Selected Ruleset 7 seed '" + _pendingSeed + "' for Singleplayer Race Survival.");
+                ModLog.Info("Selected Ruleset 8 seed '" + _pendingSeed + "' for Singleplayer Race Survival.");
                 return true;
             }
             catch (Exception ex)
             {
-                ModLog.Error("Could not select a Ruleset 7 Singleplayer Race seed.", ex);
+                ModLog.Error("Could not select a Ruleset 8 Singleplayer Race seed.", ex);
                 return false;
             }
         }
@@ -86,7 +86,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds.Ruleset7
         {
             if (!string.IsNullOrEmpty(_pendingSeed) || SeedRuntime.Active)
             {
-                ModLog.Info("Cleared Ruleset 7 race seed session.");
+                ModLog.Info("Cleared Ruleset 8 race seed session.");
             }
             _pendingSeed = string.Empty;
             SeedRuntime.Deactivate();
@@ -114,7 +114,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds.Ruleset7
             if (ShouldActivateForNewGame())
             {
                 SeedRuntime.ActivatePendingForNewGame();
-                ModLog.Info("Starting Survival race with Ruleset 7 seed '" + _pendingSeed + "'.");
+                ModLog.Info("Starting Survival race with Ruleset 8 seed '" + _pendingSeed + "'.");
             }
         }
     }

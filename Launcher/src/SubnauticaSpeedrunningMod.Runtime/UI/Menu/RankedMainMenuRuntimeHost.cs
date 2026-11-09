@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using SubnauticaSpeedrunningMod.Runtime.Practice;
-using SubnauticaSpeedrunningMod.Runtime.Seeds.Ruleset7;
+using SubnauticaSpeedrunningMod.Runtime.Seeds.Ruleset8;
 using SubnauticaSpeedrunningMod.Runtime;
 using SubnauticaSpeedrunningMod.Shared;
 using UnityEngine;
@@ -39,9 +39,9 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
         private const string PrivateRaceRoomModeRowName = "ModPrivateRaceRoomMode";
         private const string PrivateRaceRoomStartButtonName = "ModPrivateRaceRoomStart";
         private const string PrivateRaceRoomChoiceValueName = "ModPrivateRaceRoomChoiceValue";
-        private const string UpdatePanelTitleText = "Update Beta-0.11.3";
+        private const string UpdatePanelTitleText = "Update Beta-0.11.4";
         // Edit this message each release to show the newest client changes on the main menu.
-        private const string UpdatePanelBodyText = "Added new Option to Improve Load Times by Reusing Preloaded Base Pieces, and updated the 1000 seeds for improvements";
+        private const string UpdatePanelBodyText = "Updated Races to Ruleset 8 with Increased Nickel Spawns and 1000 New Survival Any% Seeds";
         private const string UpdatePanelBodyObjectName = "ModUpdatePanelBody";
         private const int WatermarkFontSize = 18;
         private const int QueueButtonFontSize = 34;
@@ -1499,9 +1499,9 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
                 return;
             }
 
-            if (gameMode == GameMode.Survival && !Ruleset7RaceSession.PrepareSingleplayerFromPool())
+            if (gameMode == GameMode.Survival && !Ruleset8RaceSession.PrepareSingleplayerFromPool())
             {
-                const string message = "Survival Race could not load the Ruleset 7 seed pool. Check the runtime log for details.";
+                const string message = "Survival Race could not load the Ruleset 8 seed pool. Check the runtime log for details.";
                 ModLog.Error(message);
                 if (uGUI.main != null && uGUI.main.confirmation != null)
                 {
