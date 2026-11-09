@@ -1,7 +1,7 @@
 using UnityEngine;
 using UWE;
 
-namespace SubnauticaSpeedrunningMod.Runtime.Seeds.Ruleset7
+namespace SubnauticaSpeedrunningMod.Runtime.Seeds.Ruleset8
 {
     internal static class DeterministicEntitySpawn
     {

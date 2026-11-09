@@ -79,7 +79,7 @@ namespace SubnauticaSpeedrunningMod.Bootstrap
                     return;
                 }
 
-                Ruleset7AssemblyLoader.Load(gameRoot, runtimePath, delegate(string message)
+                Ruleset8AssemblyLoader.Load(gameRoot, runtimePath, delegate(string message)
                 {
                     Write(logPath, message);
                 });

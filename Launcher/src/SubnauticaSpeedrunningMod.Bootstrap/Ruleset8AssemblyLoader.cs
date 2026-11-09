@@ -5,7 +5,7 @@ using Mono.Cecil;
 
 namespace SubnauticaSpeedrunningMod.Bootstrap
 {
-    internal static class Ruleset7AssemblyLoader
+    internal static class Ruleset8AssemblyLoader
     {
         internal static void Load(string gameRoot, string runtimePath, Action<string> write)
         {
@@ -14,7 +14,7 @@ namespace SubnauticaSpeedrunningMod.Bootstrap
             {
                 if (string.Equals(loaded[i].GetName().Name, "Assembly-CSharp", StringComparison.OrdinalIgnoreCase))
                 {
-                    throw new InvalidOperationException("Assembly-CSharp loaded before the Ruleset 7 memory patch could be installed.");
+                    throw new InvalidOperationException("Assembly-CSharp loaded before the Ruleset 8 memory patch could be installed.");
                 }
             }
 
@@ -35,7 +35,7 @@ namespace SubnauticaSpeedrunningMod.Bootstrap
             using (AssemblyDefinition assembly = AssemblyDefinition.ReadAssembly(assemblyPath, readerParameters))
             {
                 Version runtimeVersion = AssemblyName.GetAssemblyName(runtimePath).Version;
-                Ruleset7AssemblyPatcher.Patch(assembly, runtimeVersion, write);
+                Ruleset8AssemblyPatcher.Patch(assembly, runtimeVersion, write);
                 using (MemoryStream output = new MemoryStream())
                 {
                     assembly.Write(output);
@@ -44,7 +44,7 @@ namespace SubnauticaSpeedrunningMod.Bootstrap
             }
 
             Assembly.Load(patchedBytes);
-            write("Loaded Ruleset 7 build-247 generation patch in memory; the installed Assembly-CSharp.dll was not modified.");
+            write("Loaded Ruleset 8 build-247 generation patch in memory; the installed Assembly-CSharp.dll was not modified.");
         }
     }
 }

@@ -6,7 +6,7 @@ using Mono.Cecil.Cil;
 
 namespace SubnauticaSpeedrunningMod.Bootstrap
 {
-    internal static class Ruleset7AssemblyPatcher
+    internal static class Ruleset8AssemblyPatcher
     {
         private const string OriginalPrefix = "__SubnauticaSetSeedOriginal_";
         private static Action<string> _write;
@@ -22,7 +22,7 @@ namespace SubnauticaSpeedrunningMod.Bootstrap
                 module.AssemblyReferences.Add(runtime);
             }
 
-            TypeReference hooks = new TypeReference("SubnauticaSpeedrunningMod.Runtime.Seeds.Ruleset7", "DirectHooks", module, runtime, false);
+            TypeReference hooks = new TypeReference("SubnauticaSpeedrunningMod.Runtime.Seeds.Ruleset8", "DirectHooks", module, runtime, false);
 
             int redirectedCalls = 0;
             redirectedCalls += Wrap(module, hooks, "RandomStart", "GetRandomStartPoint", 0, "GetRandomStartPoint");
@@ -49,7 +49,7 @@ namespace SubnauticaSpeedrunningMod.Bootstrap
             InjectCallAtStart(module, hooks, "SaveLoadManager", "InitializeNewGame", 0, "BeforeInitializeNewGame");
             InjectCallBeforeReturns(module, hooks, "Utils", "SetSavegameDir", 1, "AfterSetSavegameDir");
             InjectArgumentFilter(module, hooks, "EscapePod", "StartAtPosition", 1, 0, "ForceLifepodPosition");
-            if (_write != null) _write("Ruleset 7 rewrote build-247 generation paths; redirected " + redirectedCalls + " method call sites and " + redirectedAiRandomCalls + " creature-AI random calls.");
+            if (_write != null) _write("Ruleset 8 rewrote build-247 generation paths; redirected " + redirectedCalls + " method call sites and " + redirectedAiRandomCalls + " creature-AI random calls.");
         }
 
         private static int RedirectCreatureAIRandomCalls(ModuleDefinition module, TypeReference hooks)

@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace SubnauticaSpeedrunningMod.Runtime.Seeds.Ruleset7
+namespace SubnauticaSpeedrunningMod.Runtime.Seeds.Ruleset8
 {
     internal sealed class UnityRandomScopeState
     {

@@ -1,6 +1,6 @@
 using System;
 using UnityEngine;
-using SubnauticaSpeedrunningMod.Runtime.Seeds.Ruleset7;
+using SubnauticaSpeedrunningMod.Runtime.Seeds.Ruleset8;
 
 namespace SubnauticaSpeedrunningMod.Runtime.Seeds
 {
@@ -144,7 +144,7 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
             _startupHooksInstallAttempted = true;
             _betterRngHookInstalled = ModBetterRngRuntimeHost.EnsureInstalled();
             bool forceSecondGoldInstalled = ModForceSecondGoldRuntime.EnsureInstalled();
-            bool ruleset7Installed = Ruleset7RaceSession.EnsureInstalled();
+            bool ruleset8Installed = Ruleset8RaceSession.EnsureInstalled();
             _consoleCommandHookInstalled = ModConsoleCommandsRuntime.EnsureInstalled();
             _fishSchoolHookInstalled = ModFishSchoolHookRuntime.EnsureInstalled();
             _stalkerToothHookInstalled = ModStalkerToothHookRuntime.EnsureInstalled();
@@ -153,8 +153,8 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds
                 "BetterRngHooksInstalled=" +
                 _betterRngHookInstalled +
                 ", " +
-                "Ruleset7RaceInstalled=" +
-                ruleset7Installed +
+                "Ruleset8RaceInstalled=" +
+                ruleset8Installed +
                 ", " +
                 "ForceSecondGoldInstalled=" +
                 forceSecondGoldInstalled +
