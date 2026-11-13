@@ -39,9 +39,9 @@ namespace SubnauticaSpeedrunningMod.Runtime.Ui
         private const string PrivateRaceRoomModeRowName = "ModPrivateRaceRoomMode";
         private const string PrivateRaceRoomStartButtonName = "ModPrivateRaceRoomStart";
         private const string PrivateRaceRoomChoiceValueName = "ModPrivateRaceRoomChoiceValue";
-        private const string UpdatePanelTitleText = "Update Beta-0.11.4";
+        private const string UpdatePanelTitleText = "Update Beta-0.11.5";
         // Edit this message each release to show the newest client changes on the main menu.
-        private const string UpdatePanelBodyText = "Updated Races to Ruleset 8 with Increased Nickel Spawns and 1000 New Survival Any% Seeds";
+        private const string UpdatePanelBodyText = "Fixed Seeded Fragment Reweighting After Blueprints Are Unlocked";
         private const string UpdatePanelBodyObjectName = "ModUpdatePanelBody";
         private const int WatermarkFontSize = 18;
         private const int QueueButtonFontSize = 34;

@@ -338,7 +338,8 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds.Ruleset8
                 "ruleset\t" + RulesetVersion.ToString(CultureInfo.InvariantCulture),
                 "seedTextBase64\t" + encoded,
                 "seedValue\t" + seedValue.ToString("x16", CultureInfo.InvariantCulture),
-                "algorithm\tlocation-keyed-fnv1a64-splitmix64"
+                "algorithm\tlocation-keyed-fnv1a64-splitmix64",
+                "fragmentReweighting\tnative-v1"
             };
             File.WriteAllLines(path, lines);
         }

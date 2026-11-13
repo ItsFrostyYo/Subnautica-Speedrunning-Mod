@@ -1,5 +1,5 @@
 param(
-    [string]$VersionLabel = "Beta-0.11.4",
+    [string]$VersionLabel = "Beta-0.11.5",
     [string]$GameInstallRoot = "C:\Program Files (x86)\Steam\steamapps\common\SubnauticaRanked"
 )
 

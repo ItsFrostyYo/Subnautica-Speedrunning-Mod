@@ -33,3 +33,5 @@ Desktop.ini
 
 # This is release source, not a generated/local helper.
 !release/Build-Release.ps1
+
+/artifacts/ReweightValidation/

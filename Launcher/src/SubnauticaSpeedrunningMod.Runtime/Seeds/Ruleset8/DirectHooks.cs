@@ -68,6 +68,8 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds.Ruleset8
             List<LootDistributionData.PrefabData> candidates = new List<LootDistributionData.PrefabData>();
             List<float> probabilities = new List<float>();
             float total = 0f;
+            float skippedFragmentWeight = 0f, retainedFragmentWeight = 0f;
+            List<bool> fragments = new List<bool>();
             for (int i = 0; i < biomeData.prefabs.Count; i++)
             {
                 LootDistributionData.PrefabData candidate = biomeData.prefabs[i];
@@ -86,12 +88,32 @@ namespace SubnauticaSpeedrunningMod.Runtime.Seeds.Ruleset8
                 {
                     continue;
                 }
+                bool fragment = filterKnown && PDAScanner.IsFragment(info.techType);
+                if (fragment && PDAScanner.ContainsCompleteEntry(info.techType))
+                {
+                    skippedFragmentWeight += probability;
+                    continue;
+                }
                 candidates.Add(candidate);
+                fragments.Add(fragment);
+                if (fragment) retainedFragmentWeight += probability;
                 probabilities.Add(probability);
                 total += probability;
             }
 
+            // Match native compensation: removed fragment weight goes only to remaining fragments.
+            if (skippedFragmentWeight > 0f && retainedFragmentWeight > 0f)
+            {
+                float scale = (skippedFragmentWeight + retainedFragmentWeight) / retainedFragmentWeight;
+                for (int i = 0; i < probabilities.Count; i++) if (fragments[i]) probabilities[i] *= scale;
+            }
             ApplyMetalSalvageRules(slot, candidates, probabilities, ref total);
+            // Preserve the legacy sum/rounding exactly when nothing has been removed.
+            if (skippedFragmentWeight > 0f)
+            {
+                total = 0f;
+                for (int i = 0; i < probabilities.Count; i++) total += probabilities[i];
+            }
 
             if (total <= 0f)
             {
