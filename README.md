@@ -1,6 +1,6 @@
 # Subnautica Speedrunning Mod
 
-Current build: `Beta-0.11.4`
+Current build: `Beta-0.11.5`
 
 This is a Custom Launcher and Mod for Subnautica Septmember 30th 2018 Version of the game, which is the most prominent Speedrunning Version.
 
@@ -21,3 +21,9 @@ General settings now include Optimizations > Improve Preload Base, a native Off/
 The updater prompts when a newer published package is available. The Beta-0.11.3 package was tested with the actual Beta-0.11.1 launcher/updater, including preservation of user data and restoration after a blocked update write.
 
 Ruleset 8 doubles loose Nickel Ore spawn weight and bundles the new 1,000-seed pool from `(Current) Valid Filter + 20 Nickel`. Both 1v1 players and the Render server must use the Ruleset 8 release; updated clients reject an older Survival server profile. Deploy the server project changes before testing online races.
+
+## Native fragment reweighting compatibility fix
+
+When the original caller enables filterKnown, completed PDA fragment entries are excluded and their weight is redistributed proportionally only among remaining fragment candidates, exactly as the game does. If all fragments are complete, their weight is removed rather than transferred to resources. Existing generated objects remain unchanged. The original per-slot seed roll is reused, so the same seed and scanner state at first generation produce the same choice. No blueprint-state hash or extra random draws were added.
+
+Fresh-world weights, seed hashes and seed lists remain unchanged; no base ruleset bump is required. Post-unlock results intentionally change from the old bypass. Seed checker queries describe initial generation with no completed-fragment filtering; they do not simulate an entire unlock/streaming route. Both racers should use the updated build. Save metadata identifies this behavior as fragmentReweighting native-v1 where applicable.
